@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "타오바오 상품 수집기",
+  "version": "3.7.0",
+  "description": "타오바오 상품 정보와 이미지를 자동으로 수집하여 서버에 저장합니다",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://*.taobao.com/*",
+    "https://*.tmall.com/*",
+    "https://*.alicdn.com/*",
+    "https://img.alicdn.com/*",
+    "https://gw.alicdn.com/*",
+    "https://*.tbcdn.cn/*",
+    "https://api.exchangerate-api.com/*",
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.taobao.com/*",
+        "https://*.tmall.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -1,0 +1,52 @@
+# ===========================================
+# 타오바오 → 스마트스토어 시스템
+# 크롬 확장 프로그램 연동 버전 (간소화)
+# ===========================================
+
+services:
+  # Redis - 상품 데이터 저장
+  redis:
+    image: redis:7-alpine
+    container_name: taobao_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taobao-network
+
+  # Backend API 서버
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taobao_backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./storage:/app/storage
+      - ./backend/public:/app/public
+    networks:
+      - taobao-network
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  taobao-network:
+    driver: bridge

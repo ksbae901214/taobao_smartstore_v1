@@ -1,0 +1,2264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>타오바오 → 스마트스토어 상품 관리</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        /* 헤더 */
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            font-size: 28px;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .header p { color: #7f8c8d; }
+        
+        /* 크롤링 입력 */
+        .crawl-section {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .crawl-form {
+            display: flex;
+            gap: 15px;
+        }
+        .crawl-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 15px;
+        }
+        .crawl-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .crawl-btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .crawl-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        .crawl-hint {
+            font-size: 13px;
+            color: #888;
+            margin-top: 10px;
+        }
+        .crawl-hint a { color: #667eea; }
+        
+        /* 상품 목록 */
+        .products-section {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-size: 20px;
+            color: #2c3e50;
+        }
+        .refresh-btn {
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .refresh-btn:hover { background: #218838; }
+        
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .product-card {
+            border: 2px solid #e8e8e8;
+            border-radius: 16px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .product-card:hover {
+            border-color: #667eea;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(102, 126, 234, 0.2);
+        }
+        .product-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #f5f5f5;
+        }
+        .product-body { padding: 18px; }
+        .product-title {
+            font-size: 14px;
+            color: #2c3e50;
+            line-height: 1.4;
+            height: 40px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        .product-price {
+            font-size: 22px;
+            font-weight: bold;
+            color: #e74c3c;
+            margin-bottom: 10px;
+        }
+        .product-stats {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            color: #888;
+        }
+        
+        /* 빈 상태 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+        .empty-state .icon { font-size: 60px; margin-bottom: 15px; }
+        
+        /* 로딩 */
+        .loading {
+            text-align: center;
+            padding: 50px;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f0f0f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* 모달 */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .modal.show { display: flex; align-items: flex-start; justify-content: center; }
+        .modal-content {
+            background: #f8f9fa;
+            border-radius: 20px;
+            max-width: 900px;
+            width: 100%;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            color: #888;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            z-index: 10;
+        }
+        .modal-close:hover { background: #f0f0f0; }
+        
+        /* 모달 내용 */
+        .modal-body { padding: 25px; position: relative; }
+        
+        .info-card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .info-card-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* 썸네일 그리드 */
+        .thumb-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+        }
+        .thumb-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            background: #f0f0f0;
+        }
+        .thumb-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .thumb-item:hover { transform: scale(1.05); }
+        .thumb-label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            color: white;
+            font-size: 12px;
+            padding: 20px 8px 8px;
+            text-align: center;
+        }
+        
+        /* 상세 이미지 그리드 */
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .detail-item {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            background: #f0f0f0;
+        }
+        .detail-item img {
+            width: 100%;
+            display: block;
+        }
+        .detail-item:hover { transform: scale(1.02); }
+        .detail-label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 13px;
+            padding: 8px;
+            text-align: center;
+        }
+        
+        /* 상품명 섹션 */
+        .title-section {
+            margin-bottom: 15px;
+        }
+        .title-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        .title-cn {
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        .title-kr {
+            font-size: 16px;
+            color: #667eea;
+            line-height: 1.5;
+        }
+        
+        /* 가격 섹션 */
+        .price-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .price-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .price-item .label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        .price-item .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .price-item .value.krw { color: #28a745; }
+        
+        /* 옵션 섹션 */
+        .option-group {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 12px;
+        }
+        .option-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .option-values {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .option-value {
+            display: inline-flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 10px 14px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #555;
+            min-width: 120px;
+        }
+        .option-value.out-of-stock {
+            background: #f5f5f5;
+            border-color: #ddd;
+            opacity: 0.6;
+        }
+        .option-value .option-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .option-value .opt-cn {
+            font-weight: 500;
+            color: #333;
+        }
+        .option-value .opt-kr {
+            font-size: 12px;
+            color: #667eea;
+        }
+        .option-value .opt-price {
+            font-size: 13px;
+            color: #ff5000;
+            font-weight: bold;
+            background: #fff5f0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-top: 3px;
+        }
+        .option-value .opt-stock {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 2px;
+        }
+        .option-value .opt-stock.in-stock {
+            background: #e8f5e9;
+            color: #28a745;
+        }
+        .option-value .opt-stock.no-stock {
+            background: #ffebee;
+            color: #dc3545;
+        }
+        .option-value img {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            object-fit: cover;
+        }
+        
+        /* 썸네일 드래그 */
+        .thumb-item {
+            position: relative;
+            cursor: grab;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .thumb-item:hover {
+            border-color: #667eea;
+            transform: scale(1.02);
+        }
+        .thumb-item.dragging {
+            opacity: 0.5;
+            border-color: #ff5000;
+            cursor: grabbing;
+        }
+        .thumb-item.drag-over {
+            border-color: #28a745;
+            background: #e8f5e9;
+        }
+        .thumb-order {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: 24px;
+            height: 24px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        .thumb-drag-hint {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .thumb-item:hover .thumb-drag-hint {
+            opacity: 1;
+        }
+        .thumb-save-btn {
+            margin-top: 10px;
+            padding: 8px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            display: none;
+        }
+        .thumb-save-btn.show {
+            display: inline-block;
+        }
+        .thumb-save-btn:hover {
+            background: #218838;
+        }
+        
+        /* 이미지 액션 버튼 */
+        .img-actions {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            display: flex;
+            gap: 4px;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .thumb-item:hover .img-actions,
+        .detail-item:hover .img-actions {
+            opacity: 1;
+        }
+        .img-action-btn {
+            width: 26px;
+            height: 26px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: transform 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .img-action-btn:hover {
+            transform: scale(1.1);
+        }
+        .img-action-btn.delete {
+            background: #dc3545;
+            color: white;
+        }
+        .img-action-btn.edit {
+            background: #667eea;
+            color: white;
+        }
+        .img-action-btn.download {
+            background: #28a745;
+            color: white;
+        }
+        
+        /* 옵션 액션 버튼 */
+        .option-value {
+            position: relative;
+        }
+        .option-actions {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            display: flex;
+            gap: 2px;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .option-value:hover .option-actions {
+            opacity: 1;
+        }
+        .option-action-btn {
+            width: 20px;
+            height: 20px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .option-action-btn.delete {
+            background: #dc3545;
+            color: white;
+        }
+        .option-action-btn.edit {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* 파일 업로드 숨김 */
+        .hidden-upload {
+            display: none;
+        }
+        
+        /* 편집 모달 */
+        .edit-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .edit-modal.show {
+            display: flex;
+        }
+        .edit-modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            max-width: 500px;
+            width: 90%;
+        }
+        .edit-modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        .edit-preview {
+            width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 10px;
+            background: #f0f0f0;
+            margin-bottom: 15px;
+        }
+        .edit-input-group {
+            margin-bottom: 15px;
+        }
+        .edit-input-group label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .edit-input-group input[type="text"] {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .edit-input-group input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .edit-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .edit-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .edit-buttons .btn-save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .edit-buttons .btn-cancel {
+            background: #e0e0e0;
+            color: #666;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 15px;
+        }
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        .upload-area.dragover {
+            border-color: #28a745;
+            background: #e8f5e9;
+        }
+        
+        /* 버튼 */
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        
+        /* 토스트 */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 15px 25px;
+            background: #28a745;
+            color: white;
+            border-radius: 10px;
+            font-weight: bold;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 2000;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.error { background: #dc3545; }
+        
+        /* 카테고리 선택 */
+        .category-item {
+            padding: 10px 12px;
+            margin: 3px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .category-item:hover {
+            background: #f0f0f0;
+        }
+        .category-item.selected {
+            background: #667eea;
+            color: white;
+        }
+        .category-item.has-children::after {
+            content: '›';
+            float: right;
+            font-weight: bold;
+        }
+        .category-search-item {
+            padding: 12px 15px;
+            margin: 5px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid #e0e0e0;
+            transition: all 0.2s;
+        }
+        .category-search-item:hover {
+            background: #f0f4ff;
+            border-color: #667eea;
+        }
+        .category-search-item .path {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛒 타오바오 → 스마트스토어</h1>
+            <p>크롬 확장 프로그램으로 상품 정보와 이미지를 수집합니다</p>
+        </div>
+        
+        <!-- 네이버 API 인증 상태 -->
+        <div class="naver-auth-section" id="naver-auth-section">
+            <div class="auth-status">
+                <div class="auth-icon" id="auth-icon">⏳</div>
+                <div class="auth-info">
+                    <div class="auth-title">네이버 스마트스토어 API</div>
+                    <div class="auth-message" id="auth-message">인증 상태 확인 중...</div>
+                </div>
+                <button class="auth-btn" id="auth-btn" onclick="refreshNaverAuth()">🔄 인증 갱신</button>
+            </div>
+        </div>
+        
+        <style>
+            .naver-auth-section {
+                background: white;
+                border-radius: 12px;
+                padding: 15px 20px;
+                margin-bottom: 20px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .auth-status {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+            .auth-icon {
+                font-size: 28px;
+                width: 50px;
+                height: 50px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                background: #f0f0f0;
+            }
+            .auth-icon.success {
+                background: #d4edda;
+            }
+            .auth-icon.error {
+                background: #f8d7da;
+            }
+            .auth-icon.warning {
+                background: #fff3cd;
+            }
+            .auth-info {
+                flex: 1;
+            }
+            .auth-title {
+                font-weight: 600;
+                font-size: 15px;
+                color: #2c3e50;
+            }
+            .auth-message {
+                font-size: 13px;
+                color: #666;
+                margin-top: 4px;
+            }
+            .auth-message.success { color: #28a745; }
+            .auth-message.error { color: #dc3545; }
+            .auth-message.warning { color: #856404; }
+            .auth-btn {
+                padding: 10px 20px;
+                background: linear-gradient(135deg, #03c75a, #02b150);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s;
+            }
+            .auth-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(3, 199, 90, 0.4);
+            }
+            .auth-btn:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
+            }
+        </style>
+        
+        <div class="crawl-section">
+            <div class="crawl-form">
+                <input type="text" class="crawl-input" id="crawlUrl" 
+                       placeholder="https://item.taobao.com/item.htm?id=123456789" 
+                       disabled>
+                <button class="crawl-btn" disabled>🔍 크롤링 시작</button>
+            </div>
+            <p class="crawl-hint">
+                예시: <a href="#">https://item.taobao.com/item.htm?id=123456789</a> 또는 
+                <a href="#">https://detail.tmall.com/item.htm?id=123456789</a>
+                <br>※ 크롬 확장 프로그램을 사용해주세요 (URL 직접 크롤링은 지원하지 않습니다)
+            </p>
+        </div>
+        
+        <div class="products-section">
+            <div class="section-header">
+                <h2 class="section-title">📦 수집된 상품</h2>
+                <button class="refresh-btn" onclick="loadProducts()">🔄 새로고침</button>
+            </div>
+            
+            <div id="loading" class="loading" style="display:none;">
+                <div class="spinner"></div>
+                <p>불러오는 중...</p>
+            </div>
+            
+            <div id="empty" class="empty-state" style="display:none;">
+                <div class="icon">📭</div>
+                <h3>수집된 상품이 없습니다</h3>
+                <p>크롬 확장 프로그램으로 타오바오 상품을 수집해보세요!</p>
+            </div>
+            
+            <div id="products-grid" class="products-grid"></div>
+        </div>
+    </div>
+    
+    <!-- 모달 -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <div class="modal-body" id="modal-body"></div>
+        </div>
+    </div>
+    
+    <div id="toast" class="toast"></div>
+    
+    <!-- 이미지 편집 모달 -->
+    <div id="edit-image-modal" class="edit-modal">
+        <div class="edit-modal-content">
+            <div class="edit-modal-title" id="edit-image-title">🖼️ 이미지 수정</div>
+            <img id="edit-image-preview" class="edit-preview" src="" alt="미리보기">
+            <div class="upload-area" id="upload-area" onclick="document.getElementById('image-upload-input').click()">
+                📁 클릭하여 새 이미지 선택<br>
+                <small style="color:#888;">또는 이미지를 드래그 & 드롭</small>
+            </div>
+            <input type="file" id="image-upload-input" class="hidden-upload" accept="image/*">
+            <div class="edit-buttons">
+                <button class="btn-cancel" onclick="closeEditImageModal()">취소</button>
+                <button class="btn-save" onclick="downloadCurrentImage()">⬇️ 다운로드</button>
+                <button class="btn-save" id="save-image-btn" onclick="saveEditedImage()" disabled>💾 저장</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 옵션 편집 모달 -->
+    <div id="edit-option-modal" class="edit-modal">
+        <div class="edit-modal-content">
+            <div class="edit-modal-title">✏️ 옵션 수정</div>
+            <div class="edit-input-group">
+                <label>옵션값 (중국어)</label>
+                <input type="text" id="edit-option-cn" placeholder="중국어 옵션값">
+            </div>
+            <div class="edit-input-group">
+                <label>옵션값 (한국어)</label>
+                <input type="text" id="edit-option-kr" placeholder="한국어 옵션값">
+            </div>
+            <div class="edit-input-group">
+                <label>판매가격 (KRW, ₩)</label>
+                <input type="number" id="edit-option-price-krw" placeholder="예: 15000" step="100" min="0">
+                <small style="color:#888; font-size:11px; margin-top:4px; display:block;">원화로 입력해주세요 (스마트스토어 판매가)</small>
+            </div>
+            <div class="edit-input-group" style="opacity:0.7;">
+                <label>타오바오 원가 (CNY, ¥) - 참고용</label>
+                <input type="number" id="edit-option-price-cny" placeholder="예: 65.49" step="0.01" min="0" readonly style="background:#f5f5f5;">
+            </div>
+            <div class="edit-buttons">
+                <button class="btn-cancel" onclick="closeEditOptionModal()">취소</button>
+                <button class="btn-save" onclick="saveEditedOption()">💾 저장</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 상품명 편집 모달 -->
+    <div id="edit-title-modal" class="edit-modal">
+        <div class="edit-modal-content">
+            <div class="edit-modal-title">📝 상품명 수정</div>
+            <div class="edit-input-group">
+                <label>상품명 (중국어 원문)</label>
+                <input type="text" id="edit-title-cn" placeholder="중국어 상품명">
+            </div>
+            <div class="edit-input-group">
+                <label>상품명 (한국어)</label>
+                <input type="text" id="edit-title-kr" placeholder="한국어 상품명">
+            </div>
+            <div class="edit-buttons">
+                <button class="btn-cancel" onclick="closeEditTitleModal()">취소</button>
+                <button class="btn-save" onclick="saveEditedTitle()">💾 저장</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 삭제 확인 모달 -->
+    <div id="delete-confirm-modal" class="edit-modal">
+        <div class="edit-modal-content" style="text-align:center;">
+            <div class="edit-modal-title" style="color:#dc3545;">⚠️ 상품 삭제</div>
+            <p style="margin: 20px 0; font-size: 15px; color: #333;">
+                이 상품을 정말 삭제하시겠습니까?<br>
+                <strong style="color:#dc3545;">삭제된 상품은 복원할 수 없습니다.</strong>
+            </p>
+            <p style="margin: 15px 0; padding: 15px; background: #fff3cd; border-radius: 8px; font-size: 13px; color: #856404;">
+                💡 삭제하면 모든 이미지와 옵션 정보가 함께 삭제됩니다.
+            </p>
+            <div class="edit-buttons" style="margin-top: 25px;">
+                <button class="btn-cancel" onclick="closeDeleteConfirmModal()">취소</button>
+                <button class="btn-save" style="background:#dc3545;" onclick="confirmDeleteProduct()">🗑️ 삭제</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 카테고리 선택 모달 -->
+    <div id="category-modal" class="edit-modal">
+        <div class="edit-modal-content" style="max-width:700px; max-height:80vh; overflow:hidden; display:flex; flex-direction:column;">
+            <div class="edit-modal-title">📂 스마트스토어 카테고리 선택</div>
+            
+            <!-- 검색 -->
+            <div style="margin-bottom:15px;">
+                <input type="text" id="category-search" placeholder="카테고리 검색 (예: 장난감, 의류, 가방...)" 
+                       style="width:100%; padding:12px 15px; border:2px solid #e0e0e0; border-radius:8px; font-size:14px;"
+                       oninput="searchCategories(this.value)">
+            </div>
+            
+            <!-- 선택된 경로 표시 -->
+            <div id="category-breadcrumb" style="margin-bottom:15px; padding:10px 15px; background:#f8f9fa; border-radius:8px; font-size:13px; color:#666; min-height:40px;">
+                카테고리를 선택해주세요
+            </div>
+            
+            <!-- 카테고리 선택 영역 -->
+            <div style="display:flex; gap:10px; flex:1; overflow:hidden; min-height:300px;">
+                <!-- 대분류 -->
+                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column;">
+                    <div style="padding:10px; background:#667eea; color:white; font-weight:600; font-size:13px;">대분류</div>
+                    <div id="category-level-1" style="flex:1; overflow-y:auto; padding:5px;"></div>
+                </div>
+                <!-- 중분류 -->
+                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column;">
+                    <div style="padding:10px; background:#764ba2; color:white; font-weight:600; font-size:13px;">중분류</div>
+                    <div id="category-level-2" style="flex:1; overflow-y:auto; padding:5px;"></div>
+                </div>
+                <!-- 소분류 -->
+                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column;">
+                    <div style="padding:10px; background:#28a745; color:white; font-weight:600; font-size:13px;">소분류</div>
+                    <div id="category-level-3" style="flex:1; overflow-y:auto; padding:5px;"></div>
+                </div>
+            </div>
+            
+            <!-- 검색 결과 (검색 시에만 표시) -->
+            <div id="category-search-results" style="display:none; flex:1; overflow-y:auto; border:1px solid #e0e0e0; border-radius:8px; padding:10px; min-height:300px;"></div>
+            
+            <div class="edit-buttons" style="margin-top:20px;">
+                <button class="btn-cancel" onclick="closeCategoryModal()">취소</button>
+                <button class="btn-save" id="category-save-btn" onclick="saveCategory()" disabled>📂 카테고리 저장</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let products = [];
+        let currentExchangeRate = 190; // 기본값
+        
+        window.onload = async () => {
+            await fetchExchangeRate();
+            await checkNaverAuthStatus();
+            loadProducts();
+        };
+        
+        // ==================== 네이버 API 인증 ====================
+        async function checkNaverAuthStatus() {
+            const iconEl = document.getElementById('auth-icon');
+            const messageEl = document.getElementById('auth-message');
+            const btnEl = document.getElementById('auth-btn');
+            
+            try {
+                const res = await fetch('/api/naver/auth/status');
+                const data = await res.json();
+                
+                if (!data.configured) {
+                    // API 키 미설정
+                    iconEl.textContent = '⚠️';
+                    iconEl.className = 'auth-icon warning';
+                    messageEl.textContent = 'API 키가 설정되지 않았습니다 (샘플 카테고리 사용 중)';
+                    messageEl.className = 'auth-message warning';
+                    btnEl.style.display = 'none';
+                } else if (data.authenticated) {
+                    // 인증 성공
+                    iconEl.textContent = '✅';
+                    iconEl.className = 'auth-icon success';
+                    const expiresAt = data.status.expiresAt ? new Date(data.status.expiresAt).toLocaleString('ko-KR') : '';
+                    messageEl.textContent = `인증 완료! (만료: ${expiresAt})`;
+                    messageEl.className = 'auth-message success';
+                    btnEl.textContent = '🔄 토큰 갱신';
+                } else {
+                    // 인증 필요
+                    iconEl.textContent = '🔑';
+                    iconEl.className = 'auth-icon';
+                    messageEl.textContent = data.status?.message || '인증이 필요합니다';
+                    messageEl.className = 'auth-message';
+                    btnEl.textContent = '🔐 인증하기';
+                }
+            } catch (err) {
+                console.error('인증 상태 확인 오류:', err);
+                iconEl.textContent = '❌';
+                iconEl.className = 'auth-icon error';
+                messageEl.textContent = '서버 연결 실패';
+                messageEl.className = 'auth-message error';
+            }
+        }
+        
+        async function refreshNaverAuth() {
+            const iconEl = document.getElementById('auth-icon');
+            const messageEl = document.getElementById('auth-message');
+            const btnEl = document.getElementById('auth-btn');
+            
+            btnEl.disabled = true;
+            btnEl.textContent = '⏳ 인증 중...';
+            iconEl.textContent = '⏳';
+            iconEl.className = 'auth-icon';
+            messageEl.textContent = '토큰 발급 중...';
+            
+            try {
+                const res = await fetch('/api/naver/auth/token', { method: 'POST' });
+                const data = await res.json();
+                
+                if (data.success) {
+                    iconEl.textContent = '✅';
+                    iconEl.className = 'auth-icon success';
+                    const expiresAt = data.expiresAt ? new Date(data.expiresAt).toLocaleString('ko-KR') : '';
+                    messageEl.textContent = `인증 성공! (만료: ${expiresAt})`;
+                    messageEl.className = 'auth-message success';
+                    btnEl.textContent = '🔄 토큰 갱신';
+                    showToast('네이버 API 인증 완료!');
+                } else {
+                    iconEl.textContent = '❌';
+                    iconEl.className = 'auth-icon error';
+                    messageEl.textContent = data.error || '인증 실패';
+                    messageEl.className = 'auth-message error';
+                    btnEl.textContent = '🔐 다시 시도';
+                    showToast('네이버 API 인증 실패: ' + (data.error || ''), 'error');
+                }
+            } catch (err) {
+                console.error('인증 오류:', err);
+                iconEl.textContent = '❌';
+                iconEl.className = 'auth-icon error';
+                messageEl.textContent = '인증 요청 실패';
+                messageEl.className = 'auth-message error';
+                btnEl.textContent = '🔐 다시 시도';
+                showToast('인증 요청 실패', 'error');
+            }
+            
+            btnEl.disabled = false;
+        }
+        
+        // 환율 조회
+        async function fetchExchangeRate() {
+            try {
+                const response = await fetch('https://api.exchangerate-api.com/v4/latest/CNY');
+                if (response.ok) {
+                    const data = await response.json();
+                    currentExchangeRate = Math.round(data.rates.KRW);
+                    console.log(`환율 조회 성공: 1 CNY = ${currentExchangeRate} KRW`);
+                }
+            } catch (e) {
+                console.log('환율 조회 실패, 기본값 사용:', currentExchangeRate);
+            }
+        }
+        
+        // 중->한 번역 (서버 API 사용, 캐시 적용)
+        const translationCache = new Map();
+        
+        async function translateText(text) {
+            if (!text) return '';
+            
+            // 캐시 확인
+            if (translationCache.has(text)) {
+                return translationCache.get(text);
+            }
+            
+            try {
+                const res = await fetch(`/api/translate/${encodeURIComponent(text)}`);
+                const data = await res.json();
+                const translation = data.translation || text;
+                translationCache.set(text, translation);
+                return translation;
+            } catch (e) {
+                // fallback: 로컬 사전
+                return translateTitleLocal(text);
+            }
+        }
+        
+        // 여러 텍스트 일괄 번역
+        async function translateTexts(texts) {
+            if (!texts || texts.length === 0) return [];
+            
+            // 캐시된 것과 새로운 것 분리
+            const results = new Array(texts.length);
+            const uncached = [];
+            const uncachedIndices = [];
+            
+            texts.forEach((text, i) => {
+                if (translationCache.has(text)) {
+                    results[i] = translationCache.get(text);
+                } else {
+                    uncached.push(text);
+                    uncachedIndices.push(i);
+                }
+            });
+            
+            if (uncached.length > 0) {
+                try {
+                    const res = await fetch('/api/translate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ texts: uncached })
+                    });
+                    const data = await res.json();
+                    
+                    data.translations.forEach((tr, i) => {
+                        const originalIdx = uncachedIndices[i];
+                        results[originalIdx] = tr;
+                        translationCache.set(uncached[i], tr);
+                    });
+                } catch (e) {
+                    // fallback
+                    uncached.forEach((text, i) => {
+                        const originalIdx = uncachedIndices[i];
+                        results[originalIdx] = translateTitleLocal(text);
+                    });
+                }
+            }
+            
+            return results;
+        }
+        
+        // 로컬 사전 번역 (fallback, 동기식)
+        function translateTitleLocal(title) {
+            if (!title) return '';
+            
+            // 긴 단어부터 먼저 매칭하도록 순서 중요
+            const dict = {
+                // 옵션 관련
+                '颜色分类': '색상', '颜色': '색상', '尺码': '사이즈', '尺寸': '사이즈',
+                '规格': '규격', '型号': '모델', '款式': '스타일', '版本': '버전',
+                '随机': '랜덤', '不挑款': '랜덤발송', '挑款': '지정가능',
+                '全款': '전체', '整套': '풀세트', '单个': '단품',
+                '盒': '박스', '套': '세트', '个': '개', '件': '개', '只': '개',
+                '大号': '대형', '中号': '중형', '小号': '소형',
+                
+                // 브랜드/시리즈
+                '乐高': '레고', '幻影忍者': '닌자고', '积木': '블록', '拼装': '조립',
+                '玩具': '장난감', '儿童': '아동', '孩子': '아이', '男孩': '남아', '女孩': '여아',
+                '礼物': '선물', '生日': '생일', '圣诞': '크리스마스', '节日': '명절',
+                
+                // 닌자고 관련
+                '龙': '드래곤', '猛龙': '드래곤', '雷牙': '썬더', '混沌': '카오스',
+                '忍者': '닌자', '武士': '무사', '大师': '마스터',
+                
+                // 의류
+                '衣服': '옷', '上衣': '상의', '下装': '하의', '外套': '아우터',
+                '裤子': '바지', '裙子': '스커트', '连衣裙': '원피스',
+                'T恤': '티셔츠', '衬衫': '셔츠', '毛衣': '니트', '卫衣': '후드티',
+                '夹克': '자켓', '棉服': '패딩', '羽绒服': '다운자켓',
+                
+                // 신발/가방
+                '鞋子': '신발', '鞋': '신발', '运动鞋': '운동화', '皮鞋': '구두',
+                '凉鞋': '샌들', '拖鞋': '슬리퍼', '靴子': '부츠',
+                '包包': '가방', '包': '가방', '背包': '백팩', '手提包': '핸드백',
+                '钱包': '지갑', '挎包': '크로스백',
+                
+                // 시계/액세서리
+                '手表': '손목시계', '腕表': '시계', '机械表': '기계식 시계',
+                '石英表': '쿼츠 시계', '电子表': '전자시계',
+                '项链': '목걸이', '手链': '팔찌', '戒指': '반지', '耳环': '귀걸이',
+                
+                // 색상
+                '黑色': '블랙', '白色': '화이트', '红色': '레드', '蓝色': '블루',
+                '绿色': '그린', '黄色': '옐로우', '粉色': '핑크', '紫色': '퍼플',
+                '灰色': '그레이', '棕色': '브라운', '米色': '베이지', '橙色': '오렌지',
+                '金色': '골드', '银色': '실버', '彩色': '멀티컬러',
+                
+                // 사이즈
+                '大码': '빅사이즈', '小码': '스몰사이즈', '均码': '프리사이즈',
+                '加大': 'XL', '加小': 'XS',
+                
+                // 성별/대상
+                '男': '남성', '女': '여성', '童': '아동', '中性': '유니섹스',
+                '情侣': '커플', '亲子': '가족',
+                
+                // 계절
+                '夏季': '여름', '夏天': '여름', '夏': '여름',
+                '冬季': '겨울', '冬天': '겨울', '冬': '겨울',
+                '春季': '봄', '春天': '봄', '春': '봄',
+                '秋季': '가을', '秋天': '가을', '秋': '가을',
+                '四季': '사계절',
+                
+                // 스타일
+                '韩版': '한국스타일', '韩国': '한국', '日系': '일본스타일', '日本': '일본',
+                '欧美': '유럽스타일', '复古': '레트로', '潮流': '트렌디',
+                '简约': '심플', '百搭': '데일리', '休闲': '캐주얼',
+                '运动': '스포츠', '时尚': '패션', '优雅': '엘레강스',
+                
+                // 품질/특성
+                '高级': '고급', '高端': '프리미엄', '奢华': '럭셔리',
+                '正品': '정품', '原装': '오리지널', '官方': '공식',
+                '新款': '신상', '新品': '신상품', '热卖': '베스트셀러',
+                '爆款': '인기상품', '限定': '한정판', '特价': '특가',
+                '包邮': '무료배송', '现货': '당일발송',
+                
+                // 기능
+                '防水': '방수', '防晒': '자외선차단', '透气': '통기성',
+                '保暖': '보온', '轻便': '경량', '耐磨': '내구성',
+                
+                // 전자제품
+                '手机': '휴대폰', '手機': '휴대폰', '电脑': '컴퓨터',
+                '平板': '태블릿', '耳机': '이어폰', '充电器': '충전기',
+                '数据线': '케이블', '保护壳': '케이스', '贴膜': '필름',
+                
+                // 기타 명사
+                '系列': '시리즈', '套装': '세트', '组合': '세트',
+                '概念': '컨셉', '设计': '디자인', '品牌': '브랜드',
+                '款式': '스타일', '版型': '핏', '材质': '소재',
+                '装饰': '장식', '摆件': '소품', '配件': '액세서리',
+                
+                // 동물
+                '驯鹿': '순록', '猫': '고양이', '狗': '강아지',
+                '熊': '곰', '兔': '토끼', '鸟': '새',
+                
+                // 중국 특정
+                '中国': '중국',
+                
+                // 숫자/단위 (그대로 유지)
+                '款': '종류', '件': '개', '双': '켤레', '套': '세트'
+            };
+            
+            let result = title;
+            
+            // 긴 단어부터 먼저 치환 (정확한 매칭을 위해)
+            const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
+            for (const cn of sortedKeys) {
+                result = result.replace(new RegExp(cn, 'g'), dict[cn]);
+            }
+            
+            // 숫자와 영문은 그대로 유지, 띄어쓰기 정리
+            result = result.replace(/\s+/g, ' ').trim();
+            
+            return result;
+        }
+        
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        async function loadProducts() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('empty').style.display = 'none';
+            document.getElementById('products-grid').innerHTML = '';
+            
+            try {
+                const res = await fetch('/api/products/extracted');
+                const data = await res.json();
+                products = data.products || [];
+                
+                document.getElementById('loading').style.display = 'none';
+                
+                if (products.length === 0) {
+                    document.getElementById('empty').style.display = 'block';
+                    return;
+                }
+                
+                const grid = document.getElementById('products-grid');
+                grid.innerHTML = products.map(p => {
+                    const rate = p.exchange_rate || currentExchangeRate;
+                    const krwPrice = Math.round((p.price || 0) * rate);
+                    return `
+                    <div class="product-card" onclick="showDetail('${p.product_id}')">
+                        <img class="product-img" 
+                             src="${p.thumbnail || ''}" 
+                             alt="${p.title || '상품'}"
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f5f5f5%22 width=%22100%%22 height=%22100%%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%22%23ccc%22 font-size=%2214%22>No Image</text></svg>'">
+                        <div class="product-body">
+                            <div class="product-title">${p.title || '제목 없음'}</div>
+                            <div class="product-price">¥${p.price || 0} <span style="font-size:14px;color:#28a745;">₩${krwPrice.toLocaleString()}</span></div>
+                            <div class="product-stats">
+                                <span>🖼 ${p.images_count || 0}</span>
+                                <span>📷 ${p.detail_images_count || 0}</span>
+                                <span>🎨 ${p.options_count || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('');
+                
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('empty').style.display = 'block';
+            }
+        }
+        
+        async function showDetail(id) {
+            try {
+                const res = await fetch(`/api/products/extracted/${id}`);
+                const p = await res.json();
+                
+                // 썸네일 이미지 (드래그 정렬 가능)
+                const thumbsHtml = (p.images?.length > 0)
+                    ? p.images.map((url, i) => `
+                        <div class="thumb-item" draggable="true" data-index="${i}" data-url="${url}">
+                            <div class="thumb-order">${i+1}</div>
+                            <div class="img-actions">
+                                <button class="img-action-btn edit" onclick="event.stopPropagation(); openEditImage('thumb', ${i}, '${url}', '${id}')" title="수정">✏️</button>
+                                <button class="img-action-btn delete" onclick="event.stopPropagation(); deleteImage('thumb', ${i}, '${id}')" title="삭제">✕</button>
+                            </div>
+                            <img src="${url}" alt="썸네일 ${i+1}" onerror="this.parentElement.style.display='none'">
+                            <div class="thumb-label">썸네일 ${i+1}</div>
+                            <div class="thumb-drag-hint">↕ 드래그</div>
+                        </div>
+                    `).join('')
+                    : '<p style="color:#888;text-align:center;padding:20px;">썸네일이 없습니다</p>';
+                
+                // 상세 이미지
+                const detailsHtml = (p.detail_images?.length > 0)
+                    ? p.detail_images.map((url, i) => `
+                        <div class="detail-item">
+                            <div class="img-actions">
+                                <button class="img-action-btn edit" onclick="event.stopPropagation(); openEditImage('detail', ${i}, '${url}', '${id}')" title="수정">✏️</button>
+                                <button class="img-action-btn delete" onclick="event.stopPropagation(); deleteImage('detail', ${i}, '${id}')" title="삭제">✕</button>
+                            </div>
+                            <img src="${url}" alt="상세 ${i+1}" onclick="window.open('${url}','_blank')" style="cursor:pointer;" onerror="this.parentElement.style.display='none'">
+                            <div class="detail-label">상세 ${i+1}</div>
+                        </div>
+                    `).join('')
+                    : '<p style="color:#888;text-align:center;padding:20px;">상세 이미지가 없습니다</p>';
+                
+                // 가격 계산 (저장된 환율 또는 현재 환율 사용) - 옵션에서도 사용하므로 먼저 계산
+                const rate = p.exchange_rate || currentExchangeRate;
+                const cnyPrice = p.price || 0;
+                const krwPrice = Math.round(cnyPrice * rate);
+                
+                // 옵션 번역 준비 - 모든 텍스트 수집
+                const textsToTranslate = [];
+                if (p.options?.length > 0) {
+                    p.options.forEach(opt => {
+                        textsToTranslate.push(opt.name || '옵션');
+                        opt.values.forEach(v => {
+                            if (!v.name_kr) {
+                                textsToTranslate.push(v.name || '');
+                            }
+                        });
+                    });
+                }
+                textsToTranslate.push(p.title || '');
+                
+                // 일괄 번역 수행
+                const translations = await translateTexts(textsToTranslate);
+                let transIdx = 0;
+                
+                // 옵션 (번역 적용)
+                const optionsHtml = (p.options?.length > 0)
+                    ? p.options.map((opt, optIdx) => {
+                        const translatedOptName = translations[transIdx++] || translateTitleLocal(opt.name || '옵션');
+                        return `
+                        <div class="option-group" data-opt-idx="${optIdx}">
+                            <div class="option-name">
+                                ${opt.name || '옵션'}
+                                <span style="color:#667eea; font-size:13px; margin-left:8px;">(${translatedOptName})</span>
+                            </div>
+                            <div class="option-values">
+                                ${opt.values.map((v, valIdx) => {
+                                    const valueName = v.name || v;
+                                    // 저장된 한국어 번역이 있으면 사용, 없으면 API 번역 결과 사용
+                                    const translatedValueName = v.name_kr || translations[transIdx++] || translateTitleLocal(valueName);
+                                    const quantity = v.quantity ?? null;
+                                    const price = v.price || null;
+                                    const hasStock = quantity === null || quantity > 0;
+                                    
+                                    // 원화 환산 (환율 사용) - v.price_krw가 있으면 우선 사용
+                                    const priceNum = price ? parseFloat(price) : 0;
+                                    const optKrwPrice = v.price_krw || Math.round(priceNum * rate);
+                                    
+                                    return `
+                                    <span class="option-value ${!hasStock ? 'out-of-stock' : ''}" title="${quantity !== null ? '재고: ' + quantity + '개' : ''}" data-opt-idx="${optIdx}" data-val-idx="${valIdx}">
+                                        <div class="option-actions">
+                                            <button class="option-action-btn edit" onclick="event.stopPropagation(); openEditOption(${optIdx}, ${valIdx}, '${valueName.replace(/'/g, "\\'")}', '${translatedValueName.replace(/'/g, "\\'")}', ${optKrwPrice || 'null'}, ${price || 'null'}, '${id}')" title="수정">✏️</button>
+                                            <button class="option-action-btn delete" onclick="event.stopPropagation(); deleteOption(${optIdx}, ${valIdx}, '${id}')" title="삭제">✕</button>
+                                        </div>
+                                        ${v.image ? `<img src="${v.image}" onerror="this.style.display='none'">` : ''}
+                                        <span class="option-text">
+                                            <span class="opt-cn">${valueName}</span>
+                                            <span class="opt-kr">${translatedValueName}</span>
+                                            <span class="opt-price">${price ? `₩${optKrwPrice.toLocaleString()} <small style="color:#888;">(¥${price})</small>` : '가격 미설정'}</span>
+                                            ${quantity !== null ? `<span class="opt-stock ${hasStock ? 'in-stock' : 'no-stock'}">${hasStock ? '재고: ' + quantity : '품절'}</span>` : ''}
+                                        </span>
+                                    </span>
+                                `}).join('')}
+                            </div>
+                        </div>
+                    `}).join('')
+                    : '<p style="color:#888;">옵션 정보가 없습니다</p>';
+                
+                // 제목 번역 (이미 translateTexts에서 마지막에 추가함)
+                const translatedTitle = translations[translations.length - 1] || translateTitleLocal(p.title);
+                
+                document.getElementById('modal-body').innerHTML = `
+                    <!-- 썸네일 이미지 -->
+                    <div class="info-card">
+                        <div class="info-card-title">
+                            📷 썸네일 이미지 <span style="color:#888;font-weight:normal;">(${p.images?.length || 0}개)</span>
+                            <span style="font-size:12px;color:#667eea;margin-left:10px;">💡 드래그하여 순서 변경</span>
+                        </div>
+                        <div class="thumb-grid" id="thumb-grid-sortable" data-product-id="${id}">${thumbsHtml}</div>
+                        <button class="thumb-save-btn" id="thumb-save-btn" onclick="saveThumbOrder('${id}')">💾 순서 저장</button>
+                    </div>
+                    
+                    <!-- 상품명 -->
+                    <div class="info-card">
+                        <div class="info-card-title">
+                            📦 상품명
+                            <button id="edit-title-btn" data-product-id="${id}" style="margin-left:auto; padding:5px 12px; background:#667eea; color:white; border:none; border-radius:6px; font-size:12px; cursor:pointer;">✏️ 수정</button>
+                        </div>
+                        <div class="title-section">
+                            <div class="title-label">중국어 원문</div>
+                            <div class="title-cn" id="current-title-cn">${p.title || '-'}</div>
+                            <div class="title-label">한국어 ${p.title_kr ? '' : '(자동 번역)'}</div>
+                            <div class="title-kr" id="current-title-kr">${p.title_kr || translatedTitle || '번역 불가'}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 가격 -->
+                    <div class="info-card">
+                        <div class="info-card-title">💰 상품 가격</div>
+                        <div class="price-section">
+                            <div class="price-item">
+                                <div class="label">타오바오 가격 (CNY)</div>
+                                <div class="value">¥${cnyPrice.toFixed(2)}</div>
+                            </div>
+                            <div class="price-item">
+                                <div class="label">한국 원화 (환율 ${rate}원 기준)</div>
+                                <div class="value krw">₩${krwPrice.toLocaleString()}원</div>
+                            </div>
+                        </div>
+                        ${p.price_range ? `<p style="margin-top:10px;color:#888;font-size:13px;">가격 범위: ¥${p.price_range}</p>` : ''}
+                    </div>
+                    
+                    <!-- 스마트스토어 카테고리 -->
+                    <div class="info-card">
+                        <div class="info-card-title">
+                            📂 스마트스토어 카테고리
+                            <button onclick="openCategoryModal('${id}')" style="margin-left:auto; padding:5px 12px; background:#28a745; color:white; border:none; border-radius:6px; font-size:12px; cursor:pointer;">📂 카테고리 선택</button>
+                        </div>
+                        <div class="category-section" style="padding:15px;">
+                            ${p.naver_category_path 
+                                ? `<div style="display:flex; align-items:center; gap:10px;">
+                                      <span style="color:#28a745; font-size:20px;">✓</span>
+                                      <div>
+                                          <div style="font-weight:600; color:#2c3e50;">${p.naver_category_name || '카테고리 선택됨'}</div>
+                                          <div style="font-size:12px; color:#888; margin-top:4px;">${p.naver_category_path}</div>
+                                      </div>
+                                   </div>`
+                                : `<div style="color:#888; text-align:center; padding:20px;">
+                                      <span style="font-size:24px;">📁</span><br>
+                                      <span style="margin-top:8px; display:block;">카테고리가 선택되지 않았습니다</span>
+                                      <span style="font-size:12px; color:#aaa;">스마트스토어 등록을 위해 카테고리를 선택해주세요</span>
+                                   </div>`
+                            }
+                        </div>
+                    </div>
+                    
+                    <!-- 옵션 -->
+                    <div class="info-card">
+                        <div class="info-card-title">⚙️ 상품 옵션 <span style="color:#888;font-weight:normal;">(${p.options?.length || 0}개)</span></div>
+                        ${optionsHtml}
+                    </div>
+                    
+                    <!-- 상세 이미지 -->
+                    <div class="info-card">
+                        <div class="info-card-title">🖼️ 상세 이미지 <span style="color:#888;font-weight:normal;">(${p.detail_images?.length || 0}개)</span></div>
+                        <div class="detail-grid">${detailsHtml}</div>
+                    </div>
+                    
+                    <!-- 버튼 -->
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="window.open('${p.source_url}','_blank')">
+                            🔗 타오바오에서 보기
+                        </button>
+                        <button class="btn btn-danger" onclick="openDeleteConfirm('${id}')">
+                            🗑️ 삭제
+                        </button>
+                    </div>
+                `;
+                
+                document.getElementById('modal').classList.add('show');
+                
+                // 드래그 앤 드롭 초기화
+                initThumbDragDrop();
+                
+                // 상품명 편집 버튼 이벤트 연결
+                const editTitleBtn = document.getElementById('edit-title-btn');
+                if (editTitleBtn) {
+                    editTitleBtn.onclick = () => {
+                        const cnTitle = document.getElementById('current-title-cn')?.textContent || '';
+                        const krTitle = document.getElementById('current-title-kr')?.textContent || '';
+                        openEditTitle(cnTitle, krTitle, id);
+                    };
+                }
+                
+            } catch (err) {
+                console.error(err);
+                showToast('상품 정보 로드 실패', 'error');
+            }
+        }
+        
+        // 썸네일 드래그 앤 드롭
+        let draggedItem = null;
+        let thumbOrderChanged = false;
+        
+        function initThumbDragDrop() {
+            const grid = document.getElementById('thumb-grid-sortable');
+            if (!grid) return;
+            
+            const items = grid.querySelectorAll('.thumb-item');
+            
+            items.forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragend', handleDragEnd);
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('dragenter', handleDragEnter);
+                item.addEventListener('dragleave', handleDragLeave);
+                item.addEventListener('drop', handleDrop);
+            });
+        }
+        
+        function handleDragStart(e) {
+            draggedItem = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.index);
+        }
+        
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.thumb-item').forEach(item => {
+                item.classList.remove('drag-over');
+            });
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+        
+        function handleDragEnter(e) {
+            e.preventDefault();
+            if (this !== draggedItem) {
+                this.classList.add('drag-over');
+            }
+        }
+        
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            
+            if (this !== draggedItem) {
+                const grid = this.parentNode;
+                const allItems = [...grid.querySelectorAll('.thumb-item')];
+                const draggedIdx = allItems.indexOf(draggedItem);
+                const dropIdx = allItems.indexOf(this);
+                
+                if (draggedIdx < dropIdx) {
+                    grid.insertBefore(draggedItem, this.nextSibling);
+                } else {
+                    grid.insertBefore(draggedItem, this);
+                }
+                
+                // 순서 번호 업데이트
+                updateThumbNumbers();
+                
+                // 저장 버튼 표시
+                thumbOrderChanged = true;
+                document.getElementById('thumb-save-btn').classList.add('show');
+            }
+        }
+        
+        function updateThumbNumbers() {
+            const grid = document.getElementById('thumb-grid-sortable');
+            const items = grid.querySelectorAll('.thumb-item');
+            items.forEach((item, idx) => {
+                item.querySelector('.thumb-order').textContent = idx + 1;
+                item.querySelector('.thumb-label').textContent = `썸네일 ${idx + 1}`;
+                item.dataset.index = idx;
+            });
+        }
+        
+        async function saveThumbOrder(productId) {
+            const grid = document.getElementById('thumb-grid-sortable');
+            const items = grid.querySelectorAll('.thumb-item');
+            const newOrder = [...items].map(item => item.dataset.url);
+            
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}/images`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ images: newOrder })
+                });
+                
+                if (res.ok) {
+                    showToast('썸네일 순서가 저장되었습니다');
+                    document.getElementById('thumb-save-btn').classList.remove('show');
+                    thumbOrderChanged = false;
+                    loadProducts(); // 목록 새로고침
+                } else {
+                    throw new Error('저장 실패');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('순서 저장 실패', 'error');
+            }
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').classList.remove('show');
+        }
+        
+        async function deleteProduct(id) {
+            if (!confirm('정말 삭제하시겠습니까?')) return;
+            
+            try {
+                await fetch(`/api/products/extracted/${id}`, { method: 'DELETE' });
+                closeModal();
+                loadProducts();
+                showToast('삭제되었습니다');
+            } catch (err) {
+                showToast('삭제 실패', 'error');
+            }
+        }
+        
+        // ==================== 이미지 삭제/수정 ====================
+        let currentEditImage = { type: null, index: null, url: null, productId: null };
+        let newImageData = null;
+        
+        // 이미지 삭제
+        async function deleteImage(type, index, productId) {
+            const typeKr = type === 'thumb' ? '썸네일' : '상세 이미지';
+            if (!confirm(`${typeKr} ${index + 1}번을 삭제하시겠습니까?`)) return;
+            
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}`);
+                const product = await res.json();
+                
+                if (type === 'thumb') {
+                    product.images.splice(index, 1);
+                    await fetch(`/api/products/extracted/${productId}/images`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ images: product.images })
+                    });
+                } else {
+                    product.detail_images.splice(index, 1);
+                    await fetch(`/api/products/extracted/${productId}/detail-images`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ detail_images: product.detail_images })
+                    });
+                }
+                
+                showToast(`${typeKr}가 삭제되었습니다`);
+                showDetail(productId); // 모달 새로고침
+                loadProducts(); // 목록 새로고침
+            } catch (err) {
+                console.error(err);
+                showToast('삭제 실패', 'error');
+            }
+        }
+        
+        // 이미지 수정 모달 열기
+        function openEditImage(type, index, url, productId) {
+            currentEditImage = { type, index, url, productId };
+            newImageData = null;
+            
+            const typeKr = type === 'thumb' ? '썸네일' : '상세 이미지';
+            document.getElementById('edit-image-title').textContent = `🖼️ ${typeKr} ${index + 1} 수정`;
+            document.getElementById('edit-image-preview').src = url;
+            document.getElementById('save-image-btn').disabled = true;
+            document.getElementById('edit-image-modal').classList.add('show');
+        }
+        
+        // 이미지 수정 모달 닫기
+        function closeEditImageModal() {
+            document.getElementById('edit-image-modal').classList.remove('show');
+            currentEditImage = { type: null, index: null, url: null, productId: null };
+            newImageData = null;
+        }
+        
+        // 현재 이미지 다운로드
+        function downloadCurrentImage() {
+            const url = currentEditImage.url;
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `image_${currentEditImage.type}_${currentEditImage.index + 1}.jpg`;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('다운로드를 시작합니다');
+        }
+        
+        // 새 이미지 선택 처리
+        document.getElementById('image-upload-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleImageFile(file);
+            }
+        });
+        
+        // 드래그 & 드롭 처리
+        const uploadArea = document.getElementById('upload-area');
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleImageFile(file);
+            }
+        });
+        
+        // 이미지 파일 처리
+        function handleImageFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                newImageData = e.target.result;
+                document.getElementById('edit-image-preview').src = newImageData;
+                document.getElementById('save-image-btn').disabled = false;
+                showToast('새 이미지가 선택되었습니다');
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // 수정된 이미지 저장
+        async function saveEditedImage() {
+            if (!newImageData) return;
+            
+            try {
+                const { type, index, productId } = currentEditImage;
+                const res = await fetch(`/api/products/extracted/${productId}`);
+                const product = await res.json();
+                
+                if (type === 'thumb') {
+                    product.images[index] = newImageData;
+                    await fetch(`/api/products/extracted/${productId}/images`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ images: product.images })
+                    });
+                } else {
+                    product.detail_images[index] = newImageData;
+                    await fetch(`/api/products/extracted/${productId}/detail-images`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ detail_images: product.detail_images })
+                    });
+                }
+                
+                showToast('이미지가 수정되었습니다');
+                closeEditImageModal();
+                showDetail(productId);
+                loadProducts();
+            } catch (err) {
+                console.error(err);
+                showToast('이미지 수정 실패', 'error');
+            }
+        }
+        
+        // ==================== 옵션 삭제/수정 ====================
+        let currentEditOption = { optIdx: null, valIdx: null, productId: null };
+        
+        // 옵션 삭제
+        async function deleteOption(optIdx, valIdx, productId) {
+            if (!confirm(`이 옵션값을 삭제하시겠습니까?`)) return;
+            
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}`);
+                const product = await res.json();
+                
+                // 해당 옵션의 값 삭제
+                product.options[optIdx].values.splice(valIdx, 1);
+                
+                // 옵션 그룹에 값이 없으면 옵션 그룹도 삭제
+                if (product.options[optIdx].values.length === 0) {
+                    product.options.splice(optIdx, 1);
+                }
+                
+                await fetch(`/api/products/extracted/${productId}/options`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ options: product.options })
+                });
+                
+                showToast('옵션이 삭제되었습니다');
+                showDetail(productId);
+                loadProducts();
+            } catch (err) {
+                console.error(err);
+                showToast('옵션 삭제 실패', 'error');
+            }
+        }
+        
+        // 옵션 수정 모달 열기 (krwPrice: 원화가격, cnyPrice: 위안화가격)
+        function openEditOption(optIdx, valIdx, cnName, krName, krwPrice, cnyPrice, productId) {
+            currentEditOption = { optIdx, valIdx, productId };
+            document.getElementById('edit-option-cn').value = cnName;
+            document.getElementById('edit-option-kr').value = krName;
+            document.getElementById('edit-option-price-krw').value = krwPrice || '';
+            document.getElementById('edit-option-price-cny').value = cnyPrice || '';
+            document.getElementById('edit-option-modal').classList.add('show');
+        }
+        
+        // 옵션 수정 모달 닫기
+        function closeEditOptionModal() {
+            document.getElementById('edit-option-modal').classList.remove('show');
+            currentEditOption = { optIdx: null, valIdx: null, productId: null };
+        }
+        
+        // 수정된 옵션 저장
+        async function saveEditedOption() {
+            const { optIdx, valIdx, productId } = currentEditOption;
+            const newCnName = document.getElementById('edit-option-cn').value.trim();
+            const newKrName = document.getElementById('edit-option-kr').value.trim();
+            const newKrwPrice = document.getElementById('edit-option-price-krw').value;
+            
+            if (!newCnName) {
+                showToast('옵션값을 입력해주세요', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}`);
+                const product = await res.json();
+                
+                // 옵션값 수정 (원화 가격 저장, 위안화는 원본 유지)
+                product.options[optIdx].values[valIdx].name = newCnName;
+                product.options[optIdx].values[valIdx].name_kr = newKrName;
+                product.options[optIdx].values[valIdx].price_krw = newKrwPrice ? parseInt(newKrwPrice) : null;
+                // product.options[optIdx].values[valIdx].price 는 타오바오 원가로 유지
+                
+                await fetch(`/api/products/extracted/${productId}/options`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ options: product.options })
+                });
+                
+                showToast('옵션이 수정되었습니다');
+                closeEditOptionModal();
+                showDetail(productId);
+                loadProducts();
+            } catch (err) {
+                console.error(err);
+                showToast('옵션 수정 실패', 'error');
+            }
+        }
+        
+        // ==================== 상품명 수정 ====================
+        let currentEditTitleProductId = null;
+        
+        function openEditTitle(cnTitle, krTitle, productId) {
+            currentEditTitleProductId = productId;
+            document.getElementById('edit-title-cn').value = cnTitle || '';
+            document.getElementById('edit-title-kr').value = krTitle || '';
+            document.getElementById('edit-title-modal').classList.add('show');
+        }
+        
+        function closeEditTitleModal() {
+            document.getElementById('edit-title-modal').classList.remove('show');
+            currentEditTitleProductId = null;
+        }
+        
+        async function saveEditedTitle() {
+            const newCnTitle = document.getElementById('edit-title-cn').value.trim();
+            const newKrTitle = document.getElementById('edit-title-kr').value.trim();
+            const productId = currentEditTitleProductId; // 먼저 저장
+            
+            if (!newCnTitle) {
+                showToast('상품명을 입력해주세요', 'error');
+                return;
+            }
+            
+            try {
+                await fetch(`/api/products/extracted/${productId}/title`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: newCnTitle, title_kr: newKrTitle })
+                });
+                
+                showToast('상품명이 수정되었습니다');
+                closeEditTitleModal();
+                await showDetail(productId); // await 추가
+                loadProducts();
+            } catch (err) {
+                console.error(err);
+                showToast('상품명 수정 실패', 'error');
+            }
+        }
+        
+        // ==================== 삭제 확인 ====================
+        let deleteProductId = null;
+        
+        function openDeleteConfirm(productId) {
+            deleteProductId = productId;
+            document.getElementById('delete-confirm-modal').classList.add('show');
+        }
+        
+        function closeDeleteConfirmModal() {
+            document.getElementById('delete-confirm-modal').classList.remove('show');
+            deleteProductId = null;
+        }
+        
+        async function confirmDeleteProduct() {
+            if (!deleteProductId) return;
+            
+            try {
+                await fetch(`/api/products/extracted/${deleteProductId}`, { method: 'DELETE' });
+                closeDeleteConfirmModal();
+                closeModal();
+                loadProducts();
+                showToast('상품이 삭제되었습니다');
+            } catch (err) {
+                showToast('삭제 실패', 'error');
+            }
+        }
+        
+        // ==================== 카테고리 선택 ====================
+        let categoryProductId = null;
+        let categoryData = null;
+        let selectedCategory = null;
+        let searchTimeout = null;
+        
+        // 카테고리 모달 열기
+        async function openCategoryModal(productId) {
+            categoryProductId = productId;
+            selectedCategory = null;
+            document.getElementById('category-save-btn').disabled = true;
+            document.getElementById('category-breadcrumb').textContent = '카테고리를 선택해주세요';
+            document.getElementById('category-search').value = '';
+            document.getElementById('category-search-results').style.display = 'none';
+            document.getElementById('category-level-1').innerHTML = '<div style="padding:20px;text-align:center;color:#888;">로딩 중...</div>';
+            document.getElementById('category-level-2').innerHTML = '';
+            document.getElementById('category-level-3').innerHTML = '';
+            
+            document.getElementById('category-modal').classList.add('show');
+            
+            // 카테고리 데이터 로드
+            await loadCategoryData();
+        }
+        
+        // 카테고리 모달 닫기
+        function closeCategoryModal() {
+            document.getElementById('category-modal').classList.remove('show');
+            categoryProductId = null;
+            selectedCategory = null;
+        }
+        
+        // 카테고리 데이터 로드
+        async function loadCategoryData() {
+            try {
+                const res = await fetch('/api/naver/categories');
+                const data = await res.json();
+                
+                if (data.error) {
+                    document.getElementById('category-level-1').innerHTML = `
+                        <div style="padding:20px;text-align:center;color:#dc3545;">
+                            <p>⚠️ ${data.error}</p>
+                            ${data.hint ? `<p style="font-size:12px;margin-top:10px;">${data.hint}</p>` : ''}
+                        </div>`;
+                    return;
+                }
+                
+                categoryData = data;
+                renderMainCategories();
+                
+            } catch (err) {
+                console.error('카테고리 로드 오류:', err);
+                document.getElementById('category-level-1').innerHTML = `
+                    <div style="padding:20px;text-align:center;color:#dc3545;">
+                        카테고리를 불러올 수 없습니다
+                    </div>`;
+            }
+        }
+        
+        // 대분류 렌더링
+        function renderMainCategories() {
+            if (!categoryData || !categoryData.tree) return;
+            
+            const container = document.getElementById('category-level-1');
+            container.innerHTML = categoryData.tree.map(cat => `
+                <div class="category-item has-children" onclick="selectMainCategory('${cat.id}', '${cat.name.replace(/'/g, "\\'")}')">
+                    ${cat.name}
+                </div>
+            `).join('');
+        }
+        
+        // 대분류 선택
+        async function selectMainCategory(id, name) {
+            // UI 업데이트
+            document.querySelectorAll('#category-level-1 .category-item').forEach(el => el.classList.remove('selected'));
+            event.target.classList.add('selected');
+            document.getElementById('category-level-2').innerHTML = '<div style="padding:20px;text-align:center;color:#888;">로딩 중...</div>';
+            document.getElementById('category-level-3').innerHTML = '';
+            document.getElementById('category-breadcrumb').textContent = name;
+            selectedCategory = null;
+            document.getElementById('category-save-btn').disabled = true;
+            
+            // 중분류 로드
+            try {
+                const res = await fetch(`/api/naver/categories/${id}/children`);
+                const data = await res.json();
+                
+                const container = document.getElementById('category-level-2');
+                if (data.categories.length === 0) {
+                    container.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">하위 카테고리 없음</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.categories.map(cat => `
+                    <div class="category-item ${cat.hasChildren ? 'has-children' : ''}" 
+                         onclick="selectMidCategory('${cat.id}', '${cat.name.replace(/'/g, "\\'")}', '${cat.wholeCategoryName?.replace(/'/g, "\\'")}', ${cat.hasChildren})">
+                        ${cat.name}
+                    </div>
+                `).join('');
+                
+            } catch (err) {
+                console.error('중분류 로드 오류:', err);
+            }
+        }
+        
+        // 중분류 선택
+        async function selectMidCategory(id, name, wholeName, hasChildren) {
+            // UI 업데이트
+            document.querySelectorAll('#category-level-2 .category-item').forEach(el => el.classList.remove('selected'));
+            event.target.classList.add('selected');
+            document.getElementById('category-level-3').innerHTML = '';
+            document.getElementById('category-breadcrumb').textContent = wholeName;
+            
+            if (!hasChildren) {
+                // 소분류가 없으면 이 카테고리 선택 가능
+                selectedCategory = { id, name, wholeCategoryName: wholeName };
+                document.getElementById('category-save-btn').disabled = false;
+                return;
+            }
+            
+            selectedCategory = null;
+            document.getElementById('category-save-btn').disabled = true;
+            document.getElementById('category-level-3').innerHTML = '<div style="padding:20px;text-align:center;color:#888;">로딩 중...</div>';
+            
+            // 소분류 로드
+            try {
+                const res = await fetch(`/api/naver/categories/${id}/children`);
+                const data = await res.json();
+                
+                const container = document.getElementById('category-level-3');
+                if (data.categories.length === 0) {
+                    container.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">하위 카테고리 없음</div>';
+                    // 소분류가 없으면 중분류 선택 가능
+                    selectedCategory = { id, name, wholeCategoryName: wholeName };
+                    document.getElementById('category-save-btn').disabled = false;
+                    return;
+                }
+                
+                container.innerHTML = data.categories.map(cat => `
+                    <div class="category-item ${cat.hasChildren ? 'has-children' : ''}" 
+                         onclick="selectSubCategory('${cat.id}', '${cat.name.replace(/'/g, "\\'")}', '${cat.wholeCategoryName?.replace(/'/g, "\\'")}', ${cat.hasChildren})">
+                        ${cat.name}
+                    </div>
+                `).join('');
+                
+            } catch (err) {
+                console.error('소분류 로드 오류:', err);
+            }
+        }
+        
+        // 소분류 선택
+        async function selectSubCategory(id, name, wholeName, hasChildren) {
+            document.querySelectorAll('#category-level-3 .category-item').forEach(el => el.classList.remove('selected'));
+            event.target.classList.add('selected');
+            document.getElementById('category-breadcrumb').textContent = wholeName;
+            
+            if (!hasChildren) {
+                selectedCategory = { id, name, wholeCategoryName: wholeName };
+                document.getElementById('category-save-btn').disabled = false;
+            } else {
+                // 더 하위가 있으면 선택 불가 (실제로는 4단계 이상인 경우)
+                showToast('최하위 카테고리를 선택해주세요', 'error');
+            }
+        }
+        
+        // 카테고리 검색
+        async function searchCategories(query) {
+            if (searchTimeout) clearTimeout(searchTimeout);
+            
+            if (!query || query.length < 2) {
+                document.getElementById('category-search-results').style.display = 'none';
+                document.getElementById('category-level-1').parentElement.style.display = '';
+                document.getElementById('category-level-2').parentElement.style.display = '';
+                document.getElementById('category-level-3').parentElement.style.display = '';
+                return;
+            }
+            
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/naver/categories/search?q=${encodeURIComponent(query)}`);
+                    const data = await res.json();
+                    
+                    // 계층 선택 숨기고 검색 결과 표시
+                    document.getElementById('category-level-1').parentElement.style.display = 'none';
+                    document.getElementById('category-level-2').parentElement.style.display = 'none';
+                    document.getElementById('category-level-3').parentElement.style.display = 'none';
+                    
+                    const container = document.getElementById('category-search-results');
+                    container.style.display = 'block';
+                    
+                    if (data.categories.length === 0) {
+                        container.innerHTML = '<div style="padding:40px;text-align:center;color:#888;">검색 결과가 없습니다</div>';
+                        return;
+                    }
+                    
+                    container.innerHTML = data.categories.map(cat => `
+                        <div class="category-search-item" onclick="selectSearchedCategory('${cat.id}', '${cat.name.replace(/'/g, "\\'")}', '${cat.wholeCategoryName?.replace(/'/g, "\\'")}')">
+                            <div style="font-weight:600;">${cat.name}</div>
+                            <div class="path">${cat.wholeCategoryName}</div>
+                        </div>
+                    `).join('');
+                    
+                } catch (err) {
+                    console.error('카테고리 검색 오류:', err);
+                }
+            }, 300);
+        }
+        
+        // 검색된 카테고리 선택
+        function selectSearchedCategory(id, name, wholeName) {
+            selectedCategory = { id, name, wholeCategoryName: wholeName };
+            document.getElementById('category-breadcrumb').textContent = wholeName;
+            document.getElementById('category-save-btn').disabled = false;
+            
+            // 선택 표시
+            document.querySelectorAll('.category-search-item').forEach(el => el.style.background = '');
+            event.currentTarget.style.background = '#e8f5e9';
+        }
+        
+        // 카테고리 저장
+        async function saveCategory() {
+            if (!selectedCategory || !categoryProductId) return;
+            
+            try {
+                const res = await fetch(`/api/products/extracted/${categoryProductId}/category`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        categoryId: selectedCategory.id,
+                        categoryName: selectedCategory.name,
+                        wholeCategoryName: selectedCategory.wholeCategoryName
+                    })
+                });
+                
+                if (!res.ok) throw new Error('저장 실패');
+                
+                showToast('카테고리가 저장되었습니다');
+                closeCategoryModal();
+                showDetail(categoryProductId);
+                
+            } catch (err) {
+                console.error('카테고리 저장 오류:', err);
+                showToast('카테고리 저장 실패', 'error');
+            }
+        }
+        
+        document.getElementById('modal').onclick = (e) => {
+            if (e.target.id === 'modal') closeModal();
+        };
+        document.onkeydown = (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeEditImageModal();
+                closeEditOptionModal();
+                closeEditTitleModal();
+                closeDeleteConfirmModal();
+                closeCategoryModal();
+            }
+        };
+    </script>
+</body>
+</html>

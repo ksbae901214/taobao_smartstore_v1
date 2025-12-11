@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>타오바오→스마트스토어 상품 크롤러</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 40px;
+        }
+
+        .input-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .example {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .example span {
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .product-info {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .thumbnails {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .thumbnail-item {
+            position: relative;
+            padding-bottom: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+
+        .thumbnail-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        }
+
+        .thumbnail-item img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .info-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 8px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            color: #2c3e50;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+
+        .price {
+            color: #e74c3c;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .option-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .option-name {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .option-values {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .detail-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .detail-image {
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .detail-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #fcc;
+            margin-top: 20px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 타오바오 상품 크롤러</h1>
+        <p class="subtitle">타오바오 상품 URL을 입력하면 자동으로 정보를 가져옵니다</p>
+
+        <div class="input-section">
+            <div class="input-group">
+                <input 
+                    type="text" 
+                    id="taobaoUrl" 
+                    placeholder="타오바오 상품 URL을 입력하세요 (예: https://item.taobao.com/item.htm?id=123456789)"
+                >
+                <button id="crawlBtn" onclick="startCrawl()">크롤링 시작</button>
+            </div>
+            <div class="example">
+                <strong>예시:</strong> 
+                <span>https://item.taobao.com/item.htm?id=123456789</span> 또는
+                <span>https://detail.tmall.com/item.htm?id=123456789</span>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>상품 정보를 가져오는 중입니다...<br>잠시만 기다려주세요 (20-30초 소요)</p>
+        </div>
+
+        <div class="results" id="results">
+            <!-- 썸네일 -->
+            <div class="product-info">
+                <div class="section-title">📸 썸네일 이미지</div>
+                <div class="thumbnails" id="thumbnails"></div>
+            </div>
+
+            <!-- 상품명 -->
+            <div class="product-info">
+                <div class="section-title">📦 상품명</div>
+                <div class="info-item">
+                    <div class="info-label">중국어</div>
+                    <div class="info-value" id="titleCn">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">한국어 (자동 번역)</div>
+                    <div class="info-value" id="titleKr">번역 중...</div>
+                </div>
+            </div>
+
+            <!-- 상품 가격 -->
+            <div class="product-info">
+                <div class="section-title">💰 상품 가격</div>
+                <div class="info-item">
+                    <div class="info-label">타오바오 가격</div>
+                    <div class="info-value price" id="priceCny">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">한국 원화 (환율 200원 기준)</div>
+                    <div class="info-value price" id="priceKrw">-</div>
+                </div>
+            </div>
+
+            <!-- 상품 옵션 -->
+            <div class="product-info">
+                <div class="section-title">⚙️ 상품 옵션</div>
+                <div class="options-list" id="options">
+                    <p style="color: #7f8c8d;">옵션 정보가 없습니다.</p>
+                </div>
+            </div>
+
+            <!-- 재고 -->
+            <div class="product-info">
+                <div class="section-title">📊 재고 수량</div>
+                <div class="info-item">
+                    <div class="info-value" id="stock">-</div>
+                </div>
+            </div>
+
+            <!-- 상세 이미지 -->
+            <div class="product-info">
+                <div class="section-title">🖼️ 상세페이지 이미지</div>
+                <div class="detail-images" id="detailImages"></div>
+            </div>
+
+            <!-- 액션 버튼 -->
+            <div class="actions">
+                <button class="btn-secondary" onclick="resetForm()">다시 입력</button>
+                <button class="btn-success" onclick="saveProduct()">상품 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentProduct = null;
+
+        async function startCrawl() {
+            const url = document.getElementById('taobaoUrl').value.trim();
+            
+            if (!url) {
+                alert('타오바오 상품 URL을 입력해주세요!');
+                return;
+            }
+
+            // URL 검증
+            if (!url.includes('taobao.com') && !url.includes('tmall.com')) {
+                alert('올바른 타오바오/티몰 URL을 입력해주세요!');
+                return;
+            }
+
+            // UI 상태 변경
+            document.getElementById('crawlBtn').disabled = true;
+            document.getElementById('results').classList.remove('active');
+            document.getElementById('loading').classList.add('active');
+
+            try {
+                // 실제 크롤링 API 호출 (현재는 데모 데이터)
+                const response = await fetch('/api/crawl', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url })
+                });
+
+                if (!response.ok) {
+                    throw new Error('크롤링 실패');
+                }
+
+                const data = await response.json();
+                displayResults(data);
+
+            } catch (error) {
+                console.error('Error:', error);
+                // 데모 데이터로 대체
+                showDemoData();
+            } finally {
+                document.getElementById('crawlBtn').disabled = false;
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+
+        function showDemoData() {
+            // 데모 데이터 (실제 크롤링 전 테스트용)
+            const demoData = {
+                title_cn: '圣诞节礼物 创意礼物 乐高积木',
+                price_cny: 89.00,
+                thumbnails: [
+                    'https://via.placeholder.com/300/667eea/ffffff?text=상품1',
+                    'https://via.placeholder.com/300/764ba2/ffffff?text=상품2',
+                    'https://via.placeholder.com/300/f093fb/ffffff?text=상품3',
+                ],
+                options: [
+                    { name: '颜色', values: ['红色', '蓝色', '绿色'] },
+                    { name: '尺寸', values: ['S', 'M', 'L', 'XL'] }
+                ],
+                stock: 999,
+                detailImages: [
+                    'https://via.placeholder.com/400/667eea/ffffff?text=상세1',
+                    'https://via.placeholder.com/400/764ba2/ffffff?text=상세2',
+                    'https://via.placeholder.com/400/f093fb/ffffff?text=상세3',
+                    'https://via.placeholder.com/400/4facfe/ffffff?text=상세4',
+                ]
+            };
+
+            displayResults(demoData);
+        }
+
+        function displayResults(data) {
+            currentProduct = data;
+
+            // 썸네일
+            const thumbnailsHtml = data.thumbnails.map(img => 
+                `<div class="thumbnail-item"><img src="${img}" alt="썸네일"></div>`
+            ).join('');
+            document.getElementById('thumbnails').innerHTML = thumbnailsHtml;
+
+            // 상품명
+            document.getElementById('titleCn').textContent = data.title_cn;
+            document.getElementById('titleKr').textContent = '번역 중...';
+            
+            // 자동 번역 (실제로는 백엔드에서 처리)
+            setTimeout(() => {
+                document.getElementById('titleKr').textContent = 
+                    '크리스마스 선물 창의적인 선물 레고 블록';
+            }, 1500);
+
+            // 가격
+            document.getElementById('priceCny').textContent = `¥${data.price_cny.toFixed(2)}`;
+            const krwPrice = Math.round(data.price_cny * 200);
+            document.getElementById('priceKrw').textContent = `₩${krwPrice.toLocaleString()}`;
+
+            // 옵션
+            if (data.options && data.options.length > 0) {
+                const optionsHtml = data.options.map(opt => `
+                    <div class="option-item">
+                        <div class="option-name">${opt.name}</div>
+                        <div class="option-values">${opt.values.join(', ')}</div>
+                    </div>
+                `).join('');
+                document.getElementById('options').innerHTML = optionsHtml;
+            }
+
+            // 재고
+            document.getElementById('stock').textContent = `${data.stock}개`;
+
+            // 상세 이미지
+            const detailImagesHtml = data.detailImages.map(img => 
+                `<div class="detail-image"><img src="${img}" alt="상세이미지"></div>`
+            ).join('');
+            document.getElementById('detailImages').innerHTML = detailImagesHtml;
+
+            // 결과 표시
+            document.getElementById('results').classList.add('active');
+        }
+
+        function resetForm() {
+            document.getElementById('taobaoUrl').value = '';
+            document.getElementById('results').classList.remove('active');
+            currentProduct = null;
+        }
+
+        async function saveProduct() {
+            if (!currentProduct) {
+                alert('저장할 상품이 없습니다!');
+                return;
+            }
+
+            if (confirm('이 상품을 데이터베이스에 저장하시겠습니까?')) {
+                try {
+                    const response = await fetch('/api/products', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(currentProduct)
+                    });
+
+                    if (response.ok) {
+                        alert('✅ 상품이 성공적으로 저장되었습니다!');
+                    } else {
+                        throw new Error('저장 실패');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('⚠️ 상품 저장에 실패했습니다. 나중에 다시 시도해주세요.');
+                }
+            }
+        }
+
+        // Enter 키로 크롤링 시작
+        document.getElementById('taobaoUrl').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                startCrawl();
+            }
+        });
+    </script>
+</body>
+</html>

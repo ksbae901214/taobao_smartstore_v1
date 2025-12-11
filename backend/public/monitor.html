@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스토어 자동 모니터링</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        /* 헤더 */
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            font-size: 28px;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .header p { color: #7f8c8d; }
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .nav-tab {
+            padding: 10px 20px;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .nav-tab:hover {
+            background: #e0e0e0;
+        }
+        .nav-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        /* 스토어 추가 섹션 */
+        .add-monitor-section {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .add-monitor-form {
+            display: grid;
+            gap: 15px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .form-group label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .form-input {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+        }
+        .add-btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .add-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* 모니터 목록 */
+        .monitors-section {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-size: 20px;
+            color: #2c3e50;
+        }
+        .refresh-btn {
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .refresh-btn:hover { background: #218838; }
+        
+        .monitors-grid {
+            display: grid;
+            gap: 15px;
+        }
+        .monitor-card {
+            border: 2px solid #e8e8e8;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        .monitor-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        }
+        .monitor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        .monitor-info {
+            flex: 1;
+        }
+        .monitor-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        .monitor-url {
+            font-size: 12px;
+            color: #888;
+            word-break: break-all;
+        }
+        .monitor-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .monitor-status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+        .monitor-status.paused {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .monitor-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .stat-box {
+            text-align: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .monitor-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .action-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .action-btn.check {
+            background: #28a745;
+            color: white;
+        }
+        .action-btn.check:hover { background: #218838; }
+        .action-btn.pause {
+            background: #ffc107;
+            color: #333;
+        }
+        .action-btn.pause:hover { background: #e0a800; }
+        .action-btn.resume {
+            background: #17a2b8;
+            color: white;
+        }
+        .action-btn.resume:hover { background: #138496; }
+        .action-btn.delete {
+            background: #dc3545;
+            color: white;
+        }
+        .action-btn.delete:hover { background: #c82333; }
+        .action-btn.new-products {
+            background: #667eea;
+            color: white;
+        }
+        .action-btn.new-products:hover { background: #5568d3; }
+        
+        /* 신제품 목록 */
+        .new-products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .new-product-card {
+            border: 2px solid #e8e8e8;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .new-product-card:hover {
+            border-color: #667eea;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(102, 126, 234, 0.2);
+        }
+        .new-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #dc3545;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        .product-img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background: #f5f5f5;
+        }
+        .product-body {
+            padding: 15px;
+        }
+        .product-title {
+            font-size: 13px;
+            color: #2c3e50;
+            line-height: 1.4;
+            height: 36px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .product-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #888;
+        }
+        .product-price {
+            font-size: 16px;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        
+        /* 빈 상태 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+        .empty-state .icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+        
+        /* 로딩 */
+        .loading {
+            text-align: center;
+            padding: 50px;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f0f0f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 토스트 */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 15px 25px;
+            background: #28a745;
+            color: white;
+            border-radius: 10px;
+            font-weight: bold;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 2000;
+        }
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .toast.error {
+            background: #dc3545;
+        }
+        
+        /* 모달 */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 600px;
+            width: 100%;
+            padding: 30px;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            color: #888;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        .modal-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .new-products-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .new-product-item {
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .new-product-item:hover {
+            background: #f8f9fa;
+            border-color: #667eea;
+        }
+        .new-product-thumb {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 6px;
+            background: #f5f5f5;
+        }
+        .new-product-info {
+            flex: 1;
+        }
+        .new-product-time {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        .collect-btn {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .collect-btn:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 스토어 자동 모니터링</h1>
+            <p>타오바오 스토어의 신제품을 자동으로 감지하고 수집합니다</p>
+            <div class="nav-tabs">
+                <a href="/" style="text-decoration:none;">
+                    <button class="nav-tab">📦 상품 관리</button>
+                </a>
+                <button class="nav-tab active">🔍 자동 모니터링</button>
+            </div>
+        </div>
+        
+        <!-- 스토어 추가 -->
+        <div class="add-monitor-section">
+            <h2 style="margin-bottom: 15px; color: #2c3e50;">➕ 새 스토어 추가</h2>
+            <div class="add-monitor-form">
+                <div class="form-group">
+                    <label>스토어 URL</label>
+                    <input type="text" id="store-url" class="form-input" 
+                           placeholder="https://shop241913383.world.taobao.com">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>스토어 이름</label>
+                        <input type="text" id="store-name" class="form-input" 
+                               placeholder="예: 레고 공식 스토어">
+                    </div>
+                    <div class="form-group">
+                        <label>체크 주기 (시간)</label>
+                        <input type="number" id="check-interval" class="form-input" 
+                               placeholder="1" min="1" value="1">
+                    </div>
+                </div>
+                <button class="add-btn" onclick="addMonitor()">🔍 모니터링 시작</button>
+            </div>
+            <p style="margin-top: 15px; font-size: 13px; color: #888;">
+                💡 <strong>사용 방법:</strong><br>
+                1. 모니터링할 타오바오 스토어 URL 입력<br>
+                2. 스토어 이름과 체크 주기 설정<br>
+                3. 크롬 확장 프로그램으로 스토어 방문하여 상품 목록 수집<br>
+                4. 설정한 주기마다 신제품 자동 감지
+            </p>
+        </div>
+        
+        <!-- 모니터 목록 -->
+        <div class="monitors-section">
+            <div class="section-header">
+                <h2 class="section-title">📋 모니터링 중인 스토어</h2>
+                <button class="refresh-btn" onclick="loadMonitors()">🔄 새로고침</button>
+            </div>
+            
+            <div id="loading" class="loading" style="display:none;">
+                <div class="spinner"></div>
+                <p>불러오는 중...</p>
+            </div>
+            
+            <div id="empty" class="empty-state" style="display:none;">
+                <div class="icon">📭</div>
+                <h3>모니터링 중인 스토어가 없습니다</h3>
+                <p>위에서 새 스토어를 추가해보세요!</p>
+            </div>
+            
+            <div id="monitors-grid" class="monitors-grid"></div>
+        </div>
+        
+        <!-- 전체 신제품 목록 -->
+        <div class="monitors-section">
+            <div class="section-header">
+                <h2 class="section-title">🆕 최근 발견된 신제품</h2>
+                <button class="refresh-btn" onclick="loadAllNewProducts()">🔄 새로고침</button>
+            </div>
+            
+            <div id="new-products-loading" class="loading" style="display:none;">
+                <div class="spinner"></div>
+                <p>불러오는 중...</p>
+            </div>
+            
+            <div id="new-products-empty" class="empty-state" style="display:none;">
+                <div class="icon">🔍</div>
+                <h3>발견된 신제품이 없습니다</h3>
+                <p>모니터링이 시작되면 신제품이 자동으로 표시됩니다</p>
+            </div>
+            
+            <div id="new-products-grid" class="new-products-grid"></div>
+        </div>
+    </div>
+    
+    <!-- 신제품 상세 모달 -->
+    <div id="new-products-modal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeNewProductsModal()">×</button>
+            <h2 class="modal-title">🆕 신제품 목록</h2>
+            <div id="new-products-list" class="new-products-list"></div>
+        </div>
+    </div>
+    
+    <div id="toast" class="toast"></div>
+    
+    <script>
+        let monitors = [];
+        let allNewProducts = [];
+        
+        window.onload = () => {
+            loadMonitors();
+            loadAllNewProducts();
+        };
+        
+        // 토스트 메시지
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        // 모니터 추가
+        async function addMonitor() {
+            const storeUrl = document.getElementById('store-url').value.trim();
+            const storeName = document.getElementById('store-name').value.trim();
+            const checkInterval = parseInt(document.getElementById('check-interval').value) * 3600;
+            
+            if (!storeUrl) {
+                showToast('스토어 URL을 입력해주세요', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/monitors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        store_url: storeUrl,
+                        store_name: storeName || '이름 없음',
+                        check_interval: checkInterval
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showToast('모니터링이 시작되었습니다!');
+                    document.getElementById('store-url').value = '';
+                    document.getElementById('store-name').value = '';
+                    document.getElementById('check-interval').value = '1';
+                    
+                    setTimeout(() => {
+                        loadMonitors();
+                        alert('이제 크롬 확장 프로그램으로 스토어를 방문하여 상품 목록을 수집해주세요!');
+                    }, 500);
+                } else {
+                    showToast(data.error || '모니터 추가 실패', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('모니터 추가 실패', 'error');
+            }
+        }
+        
+        // 모니터 목록 로드
+        async function loadMonitors() {
+            const loading = document.getElementById('loading');
+            const empty = document.getElementById('empty');
+            const grid = document.getElementById('monitors-grid');
+            
+            loading.style.display = 'block';
+            empty.style.display = 'none';
+            grid.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/monitors');
+                monitors = await response.json();
+                
+                loading.style.display = 'none';
+                
+                if (monitors.length === 0) {
+                    empty.style.display = 'block';
+                    return;
+                }
+                
+                grid.innerHTML = monitors.map(m => {
+                    const intervalHours = Math.round(m.check_interval / 3600);
+                    const lastCheck = m.last_check 
+                        ? new Date(m.last_check).toLocaleString('ko-KR')
+                        : '아직 체크 안 함';
+                    
+                    return `
+                        <div class="monitor-card">
+                            <div class="monitor-header">
+                                <div class="monitor-info">
+                                    <div class="monitor-name">${m.store_name}</div>
+                                    <div class="monitor-url">${m.store_url}</div>
+                                </div>
+                                <span class="monitor-status ${m.status}">${m.status === 'active' ? '활성' : '일시정지'}</span>
+                            </div>
+                            
+                            <div class="monitor-stats">
+                                <div class="stat-box">
+                                    <div class="stat-label">체크 주기</div>
+                                    <div class="stat-value">${intervalHours}시간</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-label">전체 상품</div>
+                                    <div class="stat-value">${m.last_product_count || 0}</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-label">신제품 발견</div>
+                                    <div class="stat-value">${m.new_products_found || 0}</div>
+                                </div>
+                            </div>
+                            
+                            <div style="font-size: 12px; color: #888; margin-bottom: 15px;">
+                                마지막 체크: ${lastCheck}
+                            </div>
+                            
+                            <div class="monitor-actions">
+                                <button class="action-btn check" onclick="checkMonitor('${m.monitor_id}')">
+                                    🔍 지금 체크
+                                </button>
+                                <button class="action-btn new-products" onclick="showNewProducts('${m.monitor_id}', '${m.store_name}')">
+                                    🆕 신제품 보기
+                                </button>
+                                ${m.status === 'active' 
+                                    ? `<button class="action-btn pause" onclick="pauseMonitor('${m.monitor_id}')">⏸️ 일시정지</button>`
+                                    : `<button class="action-btn resume" onclick="resumeMonitor('${m.monitor_id}')">▶️ 재개</button>`
+                                }
+                                <button class="action-btn delete" onclick="deleteMonitor('${m.monitor_id}', '${m.store_name}')">
+                                    🗑️ 삭제
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (err) {
+                console.error(err);
+                loading.style.display = 'none';
+                showToast('모니터 목록 로드 실패', 'error');
+            }
+        }
+        
+        // 수동 체크
+        async function checkMonitor(monitorId) {
+            try {
+                const response = await fetch(`/api/monitors/${monitorId}/check`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    showToast('체크가 시작되었습니다. 크롬 확장으로 스토어를 방문해주세요!');
+                } else {
+                    showToast('체크 시작 실패', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('체크 시작 실패', 'error');
+            }
+        }
+        
+        // 일시정지
+        async function pauseMonitor(monitorId) {
+            try {
+                const response = await fetch(`/api/monitors/${monitorId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'paused' })
+                });
+                
+                if (response.ok) {
+                    showToast('모니터링이 일시정지되었습니다');
+                    loadMonitors();
+                } else {
+                    showToast('상태 변경 실패', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('상태 변경 실패', 'error');
+            }
+        }
+        
+        // 재개
+        async function resumeMonitor(monitorId) {
+            try {
+                const response = await fetch(`/api/monitors/${monitorId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'active' })
+                });
+                
+                if (response.ok) {
+                    showToast('모니터링이 재개되었습니다');
+                    loadMonitors();
+                } else {
+                    showToast('상태 변경 실패', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('상태 변경 실패', 'error');
+            }
+        }
+        
+        // 삭제
+        async function deleteMonitor(monitorId, storeName) {
+            if (!confirm(`"${storeName}" 모니터링을 삭제하시겠습니까?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/monitors/${monitorId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showToast('모니터가 삭제되었습니다');
+                    loadMonitors();
+                } else {
+                    showToast('모니터 삭제 실패', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('모니터 삭제 실패', 'error');
+            }
+        }
+        
+        // 신제품 보기
+        async function showNewProducts(monitorId, storeName) {
+            try {
+                const response = await fetch(`/api/monitors/${monitorId}/new-products`);
+                const newProducts = await response.json();
+                
+                if (newProducts.length === 0) {
+                    showToast('발견된 신제품이 없습니다', 'error');
+                    return;
+                }
+                
+                const modal = document.getElementById('new-products-modal');
+                const list = document.getElementById('new-products-list');
+                
+                document.querySelector('.modal-title').textContent = `🆕 ${storeName} - 신제품 (${newProducts.length})`;
+                
+                list.innerHTML = newProducts.map(p => {
+                    const foundTime = new Date(p.found_at).toLocaleString('ko-KR');
+                    return `
+                        <div class="new-product-item">
+                            <img src="${p.image || '/placeholder.png'}" class="new-product-thumb" alt="">
+                            <div class="new-product-info">
+                                <div class="new-product-time">발견: ${foundTime}</div>
+                                <div class="product-title">${p.title}</div>
+                                <div class="product-price">¥${p.price || '?'}</div>
+                                <button class="collect-btn" onclick="collectProduct('${p.product_id}', '${p.url}')">
+                                    📥 수집하기
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                modal.classList.add('show');
+            } catch (err) {
+                console.error(err);
+                showToast('신제품 로드 실패', 'error');
+            }
+        }
+        
+        function closeNewProductsModal() {
+            document.getElementById('new-products-modal').classList.remove('show');
+        }
+        
+        // 전체 신제품 로드
+        async function loadAllNewProducts() {
+            const loading = document.getElementById('new-products-loading');
+            const empty = document.getElementById('new-products-empty');
+            const grid = document.getElementById('new-products-grid');
+            
+            loading.style.display = 'block';
+            empty.style.display = 'none';
+            grid.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/new-products');
+                allNewProducts = await response.json();
+                
+                loading.style.display = 'none';
+                
+                if (allNewProducts.length === 0) {
+                    empty.style.display = 'block';
+                    return;
+                }
+                
+                grid.innerHTML = allNewProducts.slice(0, 12).map(p => {
+                    const foundTime = new Date(p.found_at).toLocaleDateString('ko-KR');
+                    return `
+                        <div class="new-product-card" onclick="collectProduct('${p.product_id}', '${p.url}')">
+                            <span class="new-badge">NEW</span>
+                            <img src="${p.image || '/placeholder.png'}" class="product-img" alt="">
+                            <div class="product-body">
+                                <div class="product-title">${p.title}</div>
+                                <div class="product-info">
+                                    <span>${foundTime}</span>
+                                    <span class="product-price">¥${p.price || '?'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (err) {
+                console.error(err);
+                loading.style.display = 'none';
+                showToast('신제품 로드 실패', 'error');
+            }
+        }
+        
+        // 상품 수집
+        function collectProduct(productId, url) {
+            alert(`상품 ID: ${productId}\n\n크롬 확장 프로그램으로 이 상품 페이지를 방문하여 수집해주세요:\n${url}`);
+            if (url) {
+                window.open(url, '_blank');
+            }
+        }
+        
+        // ESC 키로 모달 닫기
+        document.onkeydown = (e) => {
+            if (e.key === 'Escape') {
+                closeNewProductsModal();
+            }
+        };
+        
+        // 모달 배경 클릭 시 닫기
+        document.getElementById('new-products-modal').onclick = (e) => {
+            if (e.target.id === 'new-products-modal') {
+                closeNewProductsModal();
+            }
+        };
+    </script>
+</body>
+</html>
