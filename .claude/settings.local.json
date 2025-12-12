@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/kyusik/taobao-smartstore log --oneline --all)",
+      "Bash(git -C /Users/kyusik/taobao-smartstore show HEAD:backend/package.json)",
+      "Bash(git -C /Users/kyusik/taobao-smartstore diff c0a8726^..c0a8726 -- backend/package.json)",
+      "Bash(git -C /Users/kyusik/taobao-smartstore show:*)",
+      "Bash(cat:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(python3:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(docker cp:*)"
+    ]
+  }
+}

@@ -7,7 +7,7 @@ import Redis from 'ioredis';
 import { TranslationServiceClient } from '@google-cloud/translate';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // Redis 연결
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
@@ -652,17 +652,6 @@ app.put('/api/products/extracted/:productId/title', async (req, res) => {
     }
 });
 
-// 404 처리
-app.use((req, res) => {
-    res.status(404).json({ error: 'Not Found' });
-});
-
-// 에러 핸들러
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error('서버 에러:', err);
-    res.status(500).json({ error: 'Internal Server Error', message: err.message });
-});
-
 // =====================================================
 // Google Cloud Translation API
 // =====================================================
@@ -895,19 +884,21 @@ async function getNaverAccessToken(): Promise<string> {
     
     try {
         console.log('🔑 네이버 API 토큰 발급 시도...');
-        
-        // timestamp (밀리초)
+
+        // timestamp (밀리초) - 3초 전 기준
         const timestamp = Date.now();
-        
+
         // 전자서명 생성
-        // client_id + "_" + timestamp 를 client_secret으로 HMAC-SHA256 서명 후 Base64 인코딩
-        const crypto = await import('crypto');
-        const message = `${NAVER_CLIENT_ID}_${timestamp}`;
-        const clientSecretSign = crypto
-            .createHmac('sha256', NAVER_CLIENT_SECRET)
-            .update(message)
-            .digest('base64');
-        
+        // client_id + "_" + timestamp 를 bcrypt로 해싱 후 Base64 인코딩
+        const bcrypt = await import('bcrypt');
+        const password = `${NAVER_CLIENT_ID}_${timestamp}`;
+
+        // bcrypt로 패스워드를 client_secret으로 해싱
+        const hashed = await bcrypt.hash(password, NAVER_CLIENT_SECRET);
+
+        // Base64로 인코딩
+        const clientSecretSign = Buffer.from(hashed).toString('base64');
+
         console.log(`🔑 서명 생성 완료 (timestamp: ${timestamp})`);
         
         const requestBody = new URLSearchParams({
@@ -1012,13 +1003,13 @@ app.post('/api/naver/auth/token', async (req, res) => {
     try {
         // 기존 캐시 삭제하고 새로 발급
         naverTokenCache = null;
-        const token = await getNaverAccessToken();
-        
+        await getNaverAccessToken();
+
         res.json({
             success: true,
             message: '토큰 발급 성공',
-            tokenType: naverTokenCache?.token_type,
-            expiresAt: naverTokenCache?.expires_at ? new Date(naverTokenCache.expires_at).toISOString() : null
+            tokenType: (naverTokenCache as unknown as NaverToken).token_type,
+            expiresAt: new Date((naverTokenCache as unknown as NaverToken).expires_at).toISOString()
         });
         
     } catch (error: any) {
@@ -1057,7 +1048,7 @@ async function fetchNaverCategories(): Promise<any[]> {
     }
     
     const data = await response.json();
-    return data;
+    return data as any[];
 }
 
 // 카테고리 계층 구조로 변환
@@ -1473,6 +1464,17 @@ async function scheduleCategoryUpdate() {
 
 // 서버 시작 시 스케줄러 실행
 scheduleCategoryUpdate();
+
+// 404 처리 (모든 라우트 정의 후 마지막에 배치)
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not Found' });
+});
+
+// 에러 핸들러 (404 핸들러 뒤에 배치)
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('서버 에러:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+});
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log('========================================');

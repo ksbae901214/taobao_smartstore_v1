@@ -1004,6 +1004,11 @@
                     <div style="padding:10px; background:#28a745; color:white; font-weight:600; font-size:13px;">소분류</div>
                     <div id="category-level-3" style="flex:1; overflow-y:auto; padding:5px;"></div>
                 </div>
+                <!-- 세분류 (4단계) -->
+                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column;">
+                    <div style="padding:10px; background:#20c997; color:white; font-weight:600; font-size:13px;">세분류</div>
+                    <div id="category-level-4" style="flex:1; overflow-y:auto; padding:5px;"></div>
+                </div>
             </div>
             
             <!-- 검색 결과 (검색 시에만 표시) -->
@@ -1374,7 +1379,7 @@
                                 <button class="img-action-btn edit" onclick="event.stopPropagation(); openEditImage('thumb', ${i}, '${url}', '${id}')" title="수정">✏️</button>
                                 <button class="img-action-btn delete" onclick="event.stopPropagation(); deleteImage('thumb', ${i}, '${id}')" title="삭제">✕</button>
                             </div>
-                            <img src="${url}" alt="썸네일 ${i+1}" onerror="this.parentElement.style.display='none'">
+                            <img src="${url}" alt="썸네일 ${i+1}" onerror="this.style.opacity='0.3'; this.style.border='2px dashed #dc3545';">
                             <div class="thumb-label">썸네일 ${i+1}</div>
                             <div class="thumb-drag-hint">↕ 드래그</div>
                         </div>
@@ -1389,7 +1394,7 @@
                                 <button class="img-action-btn edit" onclick="event.stopPropagation(); openEditImage('detail', ${i}, '${url}', '${id}')" title="수정">✏️</button>
                                 <button class="img-action-btn delete" onclick="event.stopPropagation(); deleteImage('detail', ${i}, '${id}')" title="삭제">✕</button>
                             </div>
-                            <img src="${url}" alt="상세 ${i+1}" onclick="window.open('${url}','_blank')" style="cursor:pointer;" onerror="this.parentElement.style.display='none'">
+                            <img src="${url}" alt="상세 ${i+1}" onclick="window.open('${url}','_blank')" style="cursor:pointer;" onerror="this.style.opacity='0.3'; this.style.border='2px dashed #dc3545';">
                             <div class="detail-label">상세 ${i+1}</div>
                         </div>
                     `).join('')
@@ -2018,6 +2023,7 @@
             document.getElementById('category-level-1').innerHTML = '<div style="padding:20px;text-align:center;color:#888;">로딩 중...</div>';
             document.getElementById('category-level-2').innerHTML = '';
             document.getElementById('category-level-3').innerHTML = '';
+            document.getElementById('category-level-4').innerHTML = '';
             
             document.getElementById('category-modal').classList.add('show');
             
@@ -2076,92 +2082,153 @@
             // UI 업데이트
             document.querySelectorAll('#category-level-1 .category-item').forEach(el => el.classList.remove('selected'));
             event.target.classList.add('selected');
-            document.getElementById('category-level-2').innerHTML = '<div style="padding:20px;text-align:center;color:#888;">로딩 중...</div>';
+            document.getElementById('category-level-2').innerHTML = '';
             document.getElementById('category-level-3').innerHTML = '';
+            document.getElementById('category-level-4').innerHTML = '';
             document.getElementById('category-breadcrumb').textContent = name;
             selectedCategory = null;
             document.getElementById('category-save-btn').disabled = true;
-            
-            // 중분류 로드
-            try {
-                const res = await fetch(`/api/naver/categories/${id}/children`);
-                const data = await res.json();
-                
-                const container = document.getElementById('category-level-2');
-                if (data.categories.length === 0) {
-                    container.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">하위 카테고리 없음</div>';
-                    return;
-                }
-                
-                container.innerHTML = data.categories.map(cat => `
-                    <div class="category-item ${cat.hasChildren ? 'has-children' : ''}" 
-                         onclick="selectMidCategory('${cat.id}', '${cat.name.replace(/'/g, "\\'")}', '${cat.wholeCategoryName?.replace(/'/g, "\\'")}', ${cat.hasChildren})">
-                        ${cat.name}
-                    </div>
-                `).join('');
-                
-            } catch (err) {
-                console.error('중분류 로드 오류:', err);
+
+            // 트리에서 해당 카테고리 찾기
+            const mainCat = categoryData.tree.find(c => c.id === id);
+            if (!mainCat) return;
+
+            const container = document.getElementById('category-level-2');
+
+            // 자식이 없으면 선택 가능
+            if (!mainCat.children || mainCat.children.length === 0) {
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">하위 카테고리 없음</div>';
+                selectedCategory = { id: mainCat.id, name: mainCat.name, wholeCategoryName: mainCat.wholeCategoryName };
+                document.getElementById('category-save-btn').disabled = false;
+                return;
             }
+
+            // 중분류 표시
+            container.innerHTML = mainCat.children.map(cat => `
+                <div class="category-item ${cat.children && cat.children.length > 0 ? 'has-children' : ''}"
+                     onclick="selectMidCategory('${cat.id}', '${cat.name.replace(/'/g, "\\'")}', '${cat.wholeCategoryName?.replace(/'/g, "\\'")}')">
+                    ${cat.name}
+                </div>
+            `).join('');
         }
         
         // 중분류 선택
-        async function selectMidCategory(id, name, wholeName, hasChildren) {
+        function selectMidCategory(id, name, wholeName) {
             // UI 업데이트
             document.querySelectorAll('#category-level-2 .category-item').forEach(el => el.classList.remove('selected'));
             event.target.classList.add('selected');
             document.getElementById('category-level-3').innerHTML = '';
+            document.getElementById('category-level-4').innerHTML = '';
             document.getElementById('category-breadcrumb').textContent = wholeName;
-            
-            if (!hasChildren) {
-                // 소분류가 없으면 이 카테고리 선택 가능
-                selectedCategory = { id, name, wholeCategoryName: wholeName };
+
+            // 트리에서 해당 카테고리 찾기 (모든 depth 검색)
+            let midCat = null;
+            for (const root of categoryData.tree) {
+                if (root.children) {
+                    midCat = root.children.find(c => c.id === id);
+                    if (midCat) break;
+                }
+            }
+
+            if (!midCat) return;
+
+            const container = document.getElementById('category-level-3');
+
+            // 자식이 없으면 선택 가능
+            if (!midCat.children || midCat.children.length === 0) {
+                selectedCategory = { id: midCat.id, name: midCat.name, wholeCategoryName: midCat.wholeCategoryName };
                 document.getElementById('category-save-btn').disabled = false;
                 return;
             }
-            
+
+            // 소분류 표시
+            container.innerHTML = midCat.children.map(cat => `
+                <div class="category-item ${cat.children && cat.children.length > 0 ? 'has-children' : ''}"
+                     onclick="selectSubCategory('${cat.id}', '${cat.name.replace(/'/g, "\\'")}', '${cat.wholeCategoryName?.replace(/'/g, "\\'")}')">
+                    ${cat.name}
+                </div>
+            `).join('');
+
+            // 소분류가 있으면 선택 불가
             selectedCategory = null;
             document.getElementById('category-save-btn').disabled = true;
-            document.getElementById('category-level-3').innerHTML = '<div style="padding:20px;text-align:center;color:#888;">로딩 중...</div>';
-            
-            // 소분류 로드
-            try {
-                const res = await fetch(`/api/naver/categories/${id}/children`);
-                const data = await res.json();
-                
-                const container = document.getElementById('category-level-3');
-                if (data.categories.length === 0) {
-                    container.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">하위 카테고리 없음</div>';
-                    // 소분류가 없으면 중분류 선택 가능
-                    selectedCategory = { id, name, wholeCategoryName: wholeName };
-                    document.getElementById('category-save-btn').disabled = false;
-                    return;
-                }
-                
-                container.innerHTML = data.categories.map(cat => `
-                    <div class="category-item ${cat.hasChildren ? 'has-children' : ''}" 
-                         onclick="selectSubCategory('${cat.id}', '${cat.name.replace(/'/g, "\\'")}', '${cat.wholeCategoryName?.replace(/'/g, "\\'")}', ${cat.hasChildren})">
-                        ${cat.name}
-                    </div>
-                `).join('');
-                
-            } catch (err) {
-                console.error('소분류 로드 오류:', err);
-            }
         }
         
         // 소분류 선택
-        async function selectSubCategory(id, name, wholeName, hasChildren) {
+        function selectSubCategory(id, name, wholeName) {
             document.querySelectorAll('#category-level-3 .category-item').forEach(el => el.classList.remove('selected'));
             event.target.classList.add('selected');
+            document.getElementById('category-level-4').innerHTML = '';
             document.getElementById('category-breadcrumb').textContent = wholeName;
-            
-            if (!hasChildren) {
-                selectedCategory = { id, name, wholeCategoryName: wholeName };
+
+            // 트리에서 해당 카테고리 찾기 (3-depth 검색)
+            let subCat = null;
+            for (const root of categoryData.tree) {
+                if (!root.children) continue;
+                for (const mid of root.children) {
+                    if (!mid.children) continue;
+                    subCat = mid.children.find(c => c.id === id);
+                    if (subCat) break;
+                }
+                if (subCat) break;
+            }
+
+            if (!subCat) return;
+
+            const container = document.getElementById('category-level-4');
+
+            // 자식이 없으면 선택 가능
+            if (!subCat.children || subCat.children.length === 0) {
+                selectedCategory = { id: subCat.id, name: subCat.name, wholeCategoryName: subCat.wholeCategoryName };
                 document.getElementById('category-save-btn').disabled = false;
-            } else {
-                // 더 하위가 있으면 선택 불가 (실제로는 4단계 이상인 경우)
+                return;
+            }
+
+            // 세분류(4단계) 표시
+            container.innerHTML = subCat.children.map(cat => `
+                <div class="category-item ${cat.children && cat.children.length > 0 ? 'has-children' : ''}"
+                     onclick="selectDetailCategory('${cat.id}', '${cat.name.replace(/'/g, "\\'")}', '${cat.wholeCategoryName?.replace(/'/g, "\\'")}')">
+                    ${cat.name}
+                </div>
+            `).join('');
+
+            // 세분류가 있으면 선택 불가
+            selectedCategory = null;
+            document.getElementById('category-save-btn').disabled = true;
+        }
+
+        // 세분류(4단계) 선택
+        function selectDetailCategory(id, name, wholeName) {
+            document.querySelectorAll('#category-level-4 .category-item').forEach(el => el.classList.remove('selected'));
+            event.target.classList.add('selected');
+            document.getElementById('category-breadcrumb').textContent = wholeName;
+
+            // 트리에서 해당 카테고리 찾기 (4-depth 검색)
+            let detailCat = null;
+            for (const root of categoryData.tree) {
+                if (!root.children) continue;
+                for (const mid of root.children) {
+                    if (!mid.children) continue;
+                    for (const sub of mid.children) {
+                        if (!sub.children) continue;
+                        detailCat = sub.children.find(c => c.id === id);
+                        if (detailCat) break;
+                    }
+                    if (detailCat) break;
+                }
+                if (detailCat) break;
+            }
+
+            if (!detailCat) return;
+
+            // 5단계 이상이 있으면 선택 불가
+            if (detailCat.children && detailCat.children.length > 0) {
                 showToast('최하위 카테고리를 선택해주세요', 'error');
+                selectedCategory = null;
+                document.getElementById('category-save-btn').disabled = true;
+            } else {
+                selectedCategory = { id: detailCat.id, name: detailCat.name, wholeCategoryName: detailCat.wholeCategoryName };
+                document.getElementById('category-save-btn').disabled = false;
             }
         }
         
@@ -2174,18 +2241,20 @@
                 document.getElementById('category-level-1').parentElement.style.display = '';
                 document.getElementById('category-level-2').parentElement.style.display = '';
                 document.getElementById('category-level-3').parentElement.style.display = '';
+                document.getElementById('category-level-4').parentElement.style.display = '';
                 return;
             }
-            
+
             searchTimeout = setTimeout(async () => {
                 try {
                     const res = await fetch(`/api/naver/categories/search?q=${encodeURIComponent(query)}`);
                     const data = await res.json();
-                    
+
                     // 계층 선택 숨기고 검색 결과 표시
                     document.getElementById('category-level-1').parentElement.style.display = 'none';
                     document.getElementById('category-level-2').parentElement.style.display = 'none';
                     document.getElementById('category-level-3').parentElement.style.display = 'none';
+                    document.getElementById('category-level-4').parentElement.style.display = 'none';
                     
                     const container = document.getElementById('category-search-results');
                     container.style.display = 'block';
@@ -2222,7 +2291,7 @@
         // 카테고리 저장
         async function saveCategory() {
             if (!selectedCategory || !categoryProductId) return;
-            
+
             try {
                 const res = await fetch(`/api/products/extracted/${categoryProductId}/category`, {
                     method: 'PUT',
@@ -2233,13 +2302,19 @@
                         wholeCategoryName: selectedCategory.wholeCategoryName
                     })
                 });
-                
+
                 if (!res.ok) throw new Error('저장 실패');
-                
+
+                const savedProductId = categoryProductId;
+
                 showToast('카테고리가 저장되었습니다');
                 closeCategoryModal();
-                showDetail(categoryProductId);
-                
+
+                // 약간의 딜레이 후 상세 페이지 새로고침
+                setTimeout(async () => {
+                    await showDetail(savedProductId);
+                }, 100);
+
             } catch (err) {
                 console.error('카테고리 저장 오류:', err);
                 showToast('카테고리 저장 실패', 'error');
