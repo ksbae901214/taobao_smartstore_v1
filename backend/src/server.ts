@@ -5,12 +5,43 @@ import path from 'path';
 import fs from 'fs';
 import Redis from 'ioredis';
 import { TranslationServiceClient } from '@google-cloud/translate';
+import multer from 'multer';
+import schedule from 'node-schedule';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // Redis 연결
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+
+// Multer for file uploads
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+});
+
+// 이미지 다운로드 함수
+async function downloadImage(url: string): Promise<Buffer | null> {
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://item.taobao.com/'
+            }
+        });
+
+        if (!response.ok) {
+            console.log(`   ⚠️ 이미지 다운로드 실패: ${response.status} ${response.statusText}`);
+            return null;
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        return Buffer.from(arrayBuffer);
+    } catch (error: any) {
+        console.log(`   ❌ 이미지 다운로드 오류: ${error.message}`);
+        return null;
+    }
+}
 
 // Google Cloud Translation 클라이언트
 let translationClient: TranslationServiceClient | null = null;
@@ -203,31 +234,42 @@ app.post('/api/products/from-extension', async (req, res) => {
             
             for (let i = 0; i < productData.thumbnails.length; i++) {
                 const imgData = productData.thumbnails[i];
-                
+
                 if (!imgData) {
                     console.log(`   ⚠️ 썸네일 ${i+1}: 데이터 없음`);
                     continue;
                 }
-                
+
                 try {
-                    let base64Data: string | null = null;
+                    let buffer: Buffer | null = null;
                     let ext = 'jpg';
-                    
+
                     if (typeof imgData === 'string') {
-                        if (imgData.startsWith('data:image/')) {
-                            // data:image/jpeg;base64,/9j/4AAQ... 형식
+                        // URL인 경우 다운로드
+                        if (imgData.startsWith('http://') || imgData.startsWith('https://')) {
+                            console.log(`   🌐 썸네일 ${i+1}: URL 다운로드 중...`);
+                            buffer = await downloadImage(imgData);
+
+                            // URL에서 확장자 추출 시도
+                            const urlExt = imgData.match(/\.(jpg|jpeg|png|gif|webp)($|\?)/i);
+                            if (urlExt) {
+                                ext = urlExt[1].toLowerCase() === 'jpeg' ? 'jpg' : urlExt[1].toLowerCase();
+                            }
+                        }
+                        // data URL인 경우
+                        else if (imgData.startsWith('data:image/')) {
                             const matches = imgData.match(/^data:image\/(\w+);base64,(.+)$/);
                             if (matches) {
                                 ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-                                base64Data = matches[2];
+                                buffer = Buffer.from(matches[2], 'base64');
                                 console.log(`   📸 썸네일 ${i+1}: data URL 파싱 성공 (${ext})`);
                             } else {
                                 console.log(`   ⚠️ 썸네일 ${i+1}: data URL 파싱 실패`);
-                                console.log(`      시작부분: ${imgData.substring(0, 100)}`);
                             }
-                        } else if (imgData.startsWith('/9j/') || imgData.startsWith('iVBOR')) {
-                            // 순수 Base64 데이터
-                            base64Data = imgData;
+                        }
+                        // 순수 Base64 데이터
+                        else if (imgData.startsWith('/9j/') || imgData.startsWith('iVBOR')) {
+                            buffer = Buffer.from(imgData, 'base64');
                             ext = imgData.startsWith('/9j/') ? 'jpg' : 'png';
                             console.log(`   📸 썸네일 ${i+1}: 순수 Base64 (${ext})`);
                         } else {
@@ -237,16 +279,15 @@ app.post('/api/products/from-extension', async (req, res) => {
                     } else {
                         console.log(`   ⚠️ 썸네일 ${i+1}: 문자열이 아님 (${typeof imgData})`);
                     }
-                    
-                    if (base64Data) {
+
+                    if (buffer && buffer.length > 0) {
                         const filename = `thumb_${String(i + 1).padStart(3, '0')}.${ext}`;
                         const filepath = path.join(thumbDir, filename);
-                        
-                        const buffer = Buffer.from(base64Data, 'base64');
+
                         console.log(`   💾 썸네일 ${i+1}: 버퍼 크기 ${Math.round(buffer.length/1024)}KB`);
-                        
+
                         fs.writeFileSync(filepath, buffer);
-                        
+
                         // 저장 확인
                         if (fs.existsSync(filepath)) {
                             const savedSize = fs.statSync(filepath).size;
@@ -279,35 +320,48 @@ app.post('/api/products/from-extension', async (req, res) => {
             
             for (let i = 0; i < productData.detailImages.length; i++) {
                 const imgData = productData.detailImages[i];
-                
+
                 if (!imgData) {
                     continue;
                 }
-                
+
                 try {
-                    let base64Data: string | null = null;
+                    let buffer: Buffer | null = null;
                     let ext = 'jpg';
-                    
+
                     if (typeof imgData === 'string') {
-                        if (imgData.startsWith('data:image/')) {
+                        // URL인 경우 다운로드
+                        if (imgData.startsWith('http://') || imgData.startsWith('https://')) {
+                            console.log(`   🌐 상세 ${i+1}: URL 다운로드 중...`);
+                            buffer = await downloadImage(imgData);
+
+                            // URL에서 확장자 추출 시도
+                            const urlExt = imgData.match(/\.(jpg|jpeg|png|gif|webp)($|\?)/i);
+                            if (urlExt) {
+                                ext = urlExt[1].toLowerCase() === 'jpeg' ? 'jpg' : urlExt[1].toLowerCase();
+                            }
+                        }
+                        // data URL인 경우
+                        else if (imgData.startsWith('data:image/')) {
                             const matches = imgData.match(/^data:image\/(\w+);base64,(.+)$/);
                             if (matches) {
                                 ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-                                base64Data = matches[2];
+                                buffer = Buffer.from(matches[2], 'base64');
                             }
-                        } else if (imgData.startsWith('/9j/') || imgData.startsWith('iVBOR')) {
-                            base64Data = imgData;
+                        }
+                        // 순수 Base64 데이터
+                        else if (imgData.startsWith('/9j/') || imgData.startsWith('iVBOR')) {
+                            buffer = Buffer.from(imgData, 'base64');
                             ext = imgData.startsWith('/9j/') ? 'jpg' : 'png';
                         }
                     }
-                    
-                    if (base64Data) {
+
+                    if (buffer && buffer.length > 0) {
                         const filename = `detail_${String(i + 1).padStart(3, '0')}.${ext}`;
                         const filepath = path.join(detailDir, filename);
-                        
-                        const buffer = Buffer.from(base64Data, 'base64');
+
                         fs.writeFileSync(filepath, buffer);
-                        
+
                         if (fs.existsSync(filepath)) {
                             const savedSize = fs.statSync(filepath).size;
                             console.log(`   ✅ 상세 ${i+1}: 저장 완료 (${Math.round(savedSize/1024)}KB)`);
@@ -1451,6 +1505,332 @@ app.put('/api/products/extracted/:productId/category', async (req, res) => {
     }
 });
 
+// 판매가 설정 (가격 배수 적용)
+app.put('/api/products/extracted/:productId/selling-price', async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const { selling_price, price_multiplier } = req.body;
+
+        const productKey = `product:${productId}`;
+        const existing = await redis.get(productKey);
+
+        if (!existing) {
+            return res.status(404).json({ error: '상품을 찾을 수 없습니다' });
+        }
+
+        const product = JSON.parse(existing);
+        product.selling_price = selling_price;
+        product.price_multiplier = price_multiplier;
+        product.updated_at = new Date().toISOString();
+
+        await redis.set(productKey, JSON.stringify(product));
+
+        console.log(`💵 판매가 설정: ${productId} -> ₩${selling_price} (${price_multiplier}배)`);
+
+        res.json({
+            message: '판매가가 설정되었습니다',
+            selling_price,
+            price_multiplier
+        });
+
+    } catch (error: any) {
+        console.error('판매가 설정 오류:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 업로드 마켓 정보 설정
+app.put('/api/products/extracted/:productId/upload-market', async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const { uploaded_market, upload_status } = req.body;
+
+        const productKey = `product:${productId}`;
+        const existing = await redis.get(productKey);
+
+        if (!existing) {
+            return res.status(404).json({ error: '상품을 찾을 수 없습니다' });
+        }
+
+        const product = JSON.parse(existing);
+
+        if (uploaded_market) {
+            product.uploaded_market = uploaded_market;
+        }
+
+        if (upload_status) {
+            product.upload_status = upload_status;
+        }
+
+        product.updated_at = new Date().toISOString();
+
+        await redis.set(productKey, JSON.stringify(product));
+
+        console.log(`📤 업로드 마켓 설정: ${productId} -> ${uploaded_market} (${upload_status})`);
+
+        res.json({
+            message: '업로드 마켓 정보가 저장되었습니다',
+            uploaded_market: product.uploaded_market,
+            upload_status: product.upload_status
+        });
+
+    } catch (error: any) {
+        console.error('업로드 마켓 설정 오류:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 반품비 설정
+app.put('/api/products/extracted/:productId/return-fee', async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const { return_fee } = req.body;
+
+        const productKey = `product:${productId}`;
+        const existing = await redis.get(productKey);
+
+        if (!existing) {
+            return res.status(404).json({ error: '상품을 찾을 수 없습니다' });
+        }
+
+        const product = JSON.parse(existing);
+        product.return_fee = return_fee;
+        product.updated_at = new Date().toISOString();
+
+        await redis.set(productKey, JSON.stringify(product));
+
+        console.log(`💵 반품비 설정: ${productId} -> ₩${return_fee}`);
+
+        res.json({
+            message: '반품비가 설정되었습니다',
+            return_fee: product.return_fee
+        });
+
+    } catch (error: any) {
+        console.error('반품비 설정 오류:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 배송 설정 (무료배송/유료배송, 배송비)
+app.put('/api/products/extracted/:productId/shipping', async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const { free_shipping, shipping_fee } = req.body;
+
+        const productKey = `product:${productId}`;
+        const existing = await redis.get(productKey);
+
+        if (!existing) {
+            return res.status(404).json({ error: '상품을 찾을 수 없습니다' });
+        }
+
+        const product = JSON.parse(existing);
+        product.free_shipping = free_shipping;
+
+        if (!free_shipping && shipping_fee !== undefined) {
+            product.shipping_fee = shipping_fee;
+
+            // 최근 배송비 목록 관리 (최대 5개)
+            if (!product.recent_shipping_fees) {
+                product.recent_shipping_fees = [];
+            }
+
+            // 중복 제거 및 새 배송비 추가
+            product.recent_shipping_fees = product.recent_shipping_fees.filter((fee: number) => fee !== shipping_fee);
+            product.recent_shipping_fees.unshift(shipping_fee);
+
+            // 최대 5개까지만 유지
+            if (product.recent_shipping_fees.length > 5) {
+                product.recent_shipping_fees = product.recent_shipping_fees.slice(0, 5);
+            }
+        }
+
+        product.updated_at = new Date().toISOString();
+
+        await redis.set(productKey, JSON.stringify(product));
+
+        console.log(`🚚 배송 설정: ${productId} -> ${free_shipping ? '무료배송' : `유료배송 (₩${shipping_fee})`}`);
+
+        res.json({
+            message: '배송 설정이 완료되었습니다',
+            free_shipping,
+            shipping_fee: product.shipping_fee,
+            recent_shipping_fees: product.recent_shipping_fees || []
+        });
+
+    } catch (error: any) {
+        console.error('배송 설정 오류:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 환경설정 조회
+app.get('/api/settings', async (req, res) => {
+    try {
+        const settings = await redis.get('app:settings');
+        if (settings) {
+            res.json(JSON.parse(settings));
+        } else {
+            // 기본 설정 반환
+            res.json({
+                api_enabled: 'Y',
+                seller_id: '',
+                store_url: '',
+                store_name: '',
+                origin_code: '',
+                return_code: '',
+                purchase_point: 0,
+                text_review_point: 200,
+                photo_review_point: 500,
+                text_review_point_month: 500,
+                photo_review_point_month: 500,
+                daily_review_point: 500,
+                as_phone: '',
+                as_guide: '',
+                extra_shipping_enabled: 'Y',
+                shipping_management: '2관식',
+                extra_shipping_fee: 5000,
+                brand_name: '',
+                manufacturer_name: '',
+                shipping_days: 14,
+                purchase_limit: 99,
+                ai_model: 'GPT',
+                payment_unit: 100,
+                fixed_rate: 210,
+                currency_unit: 'USD'
+            });
+        }
+    } catch (error: any) {
+        console.error('설정 조회 오류:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 환경설정 저장
+app.post('/api/settings', async (req, res) => {
+    try {
+        const settings = req.body;
+
+        await redis.set('app:settings', JSON.stringify(settings));
+
+        console.log('⚙️ 환경설정이 저장되었습니다');
+
+        res.json({
+            message: '환경설정이 저장되었습니다',
+            settings
+        });
+
+    } catch (error: any) {
+        console.error('설정 저장 오류:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 파일 업로드 (이미지)
+app.post('/api/upload/image', upload.single('image'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: '파일이 없습니다' });
+        }
+
+        const imageType = req.body.type || 'general'; // top, bottom, top_extra_1, etc.
+        const uploadDir = path.join(STORAGE_DIR, 'uploads');
+
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true, mode: 0o755 });
+        }
+
+        const timestamp = Date.now();
+        const ext = path.extname(req.file.originalname) || '.jpg';
+        const filename = `${imageType}_${timestamp}${ext}`;
+        const filepath = path.join(uploadDir, filename);
+
+        fs.writeFileSync(filepath, req.file.buffer);
+
+        const imageUrl = `/images/uploads/${filename}`;
+
+        console.log(`📤 이미지 업로드: ${filename} (${Math.round(req.file.size / 1024)}KB)`);
+
+        res.json({
+            success: true,
+            url: imageUrl,
+            filename
+        });
+
+    } catch (error: any) {
+        console.error('파일 업로드 오류:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 환율 조회 (한국은행 API 또는 Fallback)
+async function fetchExchangeRateFromAPI(): Promise<number> {
+    try {
+        // 무료 환율 API 사용 (exchangerate-api.com)
+        const response = await fetch('https://open.er-api.com/v6/latest/CNY');
+        const data: any = await response.json();
+
+        if (data.rates && data.rates.KRW) {
+            const rate = Math.round(data.rates.KRW);
+            console.log(`💱 환율 조회 성공: 1 CNY = ${rate} KRW`);
+            return rate;
+        }
+
+        throw new Error('환율 데이터 없음');
+    } catch (error: any) {
+        console.log(`⚠️ 환율 API 실패, 기본값 사용: ${error.message}`);
+        return 190; // 기본 환율
+    }
+}
+
+// 환율 업데이트 및 저장
+async function updateExchangeRate() {
+    try {
+        const settings = await redis.get('app:settings');
+        const settingsObj = settings ? JSON.parse(settings) : {};
+
+        // 고정 환율 사용 여부 확인
+        if (settingsObj.fixed_rate_toggle && settingsObj.fixed_rate) {
+            console.log(`💱 고정 환율 사용: ${settingsObj.fixed_rate} KRW`);
+            await redis.set('exchange_rate:cny_krw', settingsObj.fixed_rate.toString());
+            return settingsObj.fixed_rate;
+        }
+
+        // API에서 환율 가져오기
+        const rate = await fetchExchangeRateFromAPI();
+        await redis.set('exchange_rate:cny_krw', rate.toString());
+
+        return rate;
+    } catch (error: any) {
+        console.error('환율 업데이트 오류:', error);
+        return 190;
+    }
+}
+
+// 환율 조회 API
+app.get('/api/exchange-rate', async (req, res) => {
+    try {
+        const cachedRate = await redis.get('exchange_rate:cny_krw');
+
+        if (cachedRate) {
+            res.json({ rate: parseInt(cachedRate), source: 'cache' });
+        } else {
+            const rate = await updateExchangeRate();
+            res.json({ rate, source: 'api' });
+        }
+    } catch (error: any) {
+        console.error('환율 조회 오류:', error);
+        res.json({ rate: 190, source: 'default' });
+    }
+});
+
+// 매일 오전 9시 환율 자동 업데이트
+schedule.scheduleJob('0 9 * * *', async () => {
+    console.log('⏰ 매일 오전 9시 환율 업데이트 시작');
+    await updateExchangeRate();
+});
+
 // 카테고리 자동 갱신 스케줄러 (서버 시작 시 & 매일 자정)
 async function scheduleCategoryUpdate() {
     // 시작 시 캐시 확인
@@ -1505,7 +1885,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
     console.log('========================================');
     console.log('🚀 서버 버전: v5.8');
     console.log(`🚀 서버 시작 완료: http://0.0.0.0:${PORT}`);
@@ -1514,4 +1894,7 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`🔑 네이버 Client ID: ${NAVER_CLIENT_ID ? NAVER_CLIENT_ID.substring(0, 8) + '...' : '미설정'}`);
     console.log(`🔑 네이버 Client Secret: ${NAVER_CLIENT_SECRET ? '설정됨 (' + NAVER_CLIENT_SECRET.length + '자)' : '미설정'}`);
     console.log('========================================');
+
+    // 서버 시작 시 환율 초기화
+    await updateExchangeRate();
 });

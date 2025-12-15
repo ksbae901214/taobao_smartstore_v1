@@ -18,7 +18,9 @@
       "Bash(docker exec:*)",
       "Bash(docker restart:*)",
       "Bash(docker-compose restart:*)",
-      "Bash(docker cp:*)"
+      "Bash(docker cp:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(npm --prefix ./backend run build)"
     ]
   }
 }
