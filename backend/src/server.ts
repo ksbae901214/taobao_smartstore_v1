@@ -7,6 +7,8 @@ import Redis from 'ioredis';
 import { TranslationServiceClient } from '@google-cloud/translate';
 import multer from 'multer';
 import schedule from 'node-schedule';
+import axios from 'axios';
+import crypto from 'crypto';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -1509,7 +1511,7 @@ app.put('/api/products/extracted/:productId/category', async (req, res) => {
 app.put('/api/products/extracted/:productId/selling-price', async (req, res) => {
     try {
         const { productId } = req.params;
-        const { selling_price, price_multiplier } = req.body;
+        const { selling_price, price_multiplier, price_add_amount } = req.body;
 
         const productKey = `product:${productId}`;
         const existing = await redis.get(productKey);
@@ -1520,17 +1522,35 @@ app.put('/api/products/extracted/:productId/selling-price', async (req, res) => 
 
         const product = JSON.parse(existing);
         product.selling_price = selling_price;
-        product.price_multiplier = price_multiplier;
+        product.price_multiplier = price_multiplier || 1;
+        product.price_add_amount = price_add_amount || 0;
         product.updated_at = new Date().toISOString();
+
+        // 옵션들의 가격도 배수와 추가금액 적용
+        if (product.options && Array.isArray(product.options)) {
+            product.options.forEach((option: any) => {
+                if (option.values && Array.isArray(option.values)) {
+                    option.values.forEach((value: any) => {
+                        // 타오바오 원가(CNY)가 있고 환율이 있으면 KRW로 변환 후 배수/추가금액 적용
+                        if (value.price && product.exchange_rate) {
+                            const baseKrwPrice = Math.round(value.price * product.exchange_rate);
+                            const calculatedPrice = Math.round(baseKrwPrice * (price_multiplier || 1)) + (price_add_amount || 0);
+                            value.price_krw = calculatedPrice;
+                        }
+                    });
+                }
+            });
+        }
 
         await redis.set(productKey, JSON.stringify(product));
 
-        console.log(`💵 판매가 설정: ${productId} -> ₩${selling_price} (${price_multiplier}배)`);
+        console.log(`💵 판매가 설정: ${productId} -> ₩${selling_price} (${price_multiplier}배 + ${price_add_amount}원)`);
 
         res.json({
             message: '판매가가 설정되었습니다',
             selling_price,
-            price_multiplier
+            price_multiplier,
+            price_add_amount
         });
 
     } catch (error: any) {
@@ -1609,6 +1629,229 @@ app.put('/api/products/extracted/:productId/return-fee', async (req, res) => {
     } catch (error: any) {
         console.error('반품비 설정 오류:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// 키워드 저장
+app.put('/api/products/extracted/:productId/keywords', async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const { keywords } = req.body;
+
+        const productKey = `product:${productId}`;
+        const existing = await redis.get(productKey);
+
+        if (!existing) {
+            return res.status(404).json({ error: '상품을 찾을 수 없습니다' });
+        }
+
+        const product = JSON.parse(existing);
+        product.keywords = keywords;
+        product.updated_at = new Date().toISOString();
+
+        await redis.set(productKey, JSON.stringify(product));
+
+        console.log(`🔑 키워드 저장: ${productId}`);
+
+        res.json({
+            message: '키워드가 저장되었습니다',
+            keywords: product.keywords
+        });
+
+    } catch (error: any) {
+        console.error('키워드 저장 오류:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 네이버 키워드 API - 키워드 생성 (쇼핑 인사이트 API 사용)
+app.post('/api/keywords/generate', async (req, res) => {
+    try {
+        const { productTitle, categoryName } = req.body;
+
+        // 환경설정에서 네이버 키워드 API 정보 가져오기
+        const settingsData = await redis.get('app:settings');
+        if (!settingsData) {
+            return res.status(400).json({ error: '환경설정에서 네이버 키워드 API 정보를 먼저 등록해주세요' });
+        }
+
+        const settings = JSON.parse(settingsData);
+        const {
+            keyword_customer_id,
+            keyword_access_license,
+            keyword_secret_key
+        } = settings;
+
+        if (!keyword_customer_id || !keyword_access_license || !keyword_secret_key) {
+            return res.status(400).json({ error: '환경설정에서 검색광고 API 정보(고객 ID, 액세스 라이선스, 비밀키)를 입력해주세요' });
+        }
+
+        // 1. 힌트 키워드 추출 (상품명 첫 2개 단어)
+        let hintKeyword = '';
+
+        if (productTitle) {
+            const titleWords = productTitle
+                .split(/[\s,/]+/)
+                .filter((w: string) => w.length > 1);
+            hintKeyword = titleWords.slice(0, 2).join(' ');
+        }
+
+        if (!hintKeyword) {
+            hintKeyword = categoryName || '상품';
+        }
+
+        console.log(`🔍 힌트 키워드: "${hintKeyword}"`);
+
+        // 2. 네이버 검색광고 API 서명 생성
+        const timestamp = Date.now().toString();
+        const method = 'GET';
+        const uri = '/keywordstool';
+
+        const message = `${timestamp}.${method}.${uri}`;
+        const signature = crypto
+            .createHmac('sha256', keyword_secret_key)
+            .update(message)
+            .digest('base64');
+
+        console.log('🔐 API 서명 생성 완료');
+
+        // 3. 네이버 검색광고 키워드 도구 API 호출
+        try {
+            const apiUrl = 'https://api.naver.com/keywordstool';
+
+            const params = new URLSearchParams({
+                hintKeywords: hintKeyword,
+                showDetail: '1'
+            });
+
+            console.log('🌐 네이버 검색광고 API 요청:', {
+                url: `${apiUrl}?${params.toString()}`,
+                hintKeywords: hintKeyword
+            });
+
+            const response = await axios.get(`${apiUrl}?${params.toString()}`, {
+                headers: {
+                    'X-Timestamp': timestamp,
+                    'X-API-KEY': keyword_access_license,
+                    'X-Customer': keyword_customer_id,
+                    'X-Signature': signature
+                }
+            });
+
+            console.log('✅ 네이버 API 응답:', JSON.stringify(response.data).substring(0, 300));
+
+            let keywords: string[] = [];
+
+            // API 응답에서 연관 키워드 추출
+            if (response.data && response.data.keywordList) {
+                // keywordList에서 relKeyword 추출 (최대 10개)
+                keywords = response.data.keywordList
+                    .map((item: any) => item.relKeyword)
+                    .filter((k: string) => k && k.length > 0)
+                    .slice(0, 10);
+
+                console.log(`🔑 연관 키워드 ${keywords.length}개 추출`);
+            }
+
+            // API에서 키워드를 가져오지 못한 경우
+            if (keywords.length === 0) {
+                console.log('⚠️ API에서 키워드를 가져오지 못했습니다. 상품명에서 추출합니다.');
+
+                if (productTitle) {
+                    const titleWords = productTitle
+                        .split(/[\s,/]+/)
+                        .map((w: string) => w.trim())
+                        .filter((w: string) => w.length > 1);
+                    keywords.push(...titleWords);
+                }
+
+                if (categoryName) {
+                    const categoryWords = categoryName
+                        .split('>')
+                        .map((w: string) => w.trim())
+                        .filter((w: string) => w);
+                    keywords.push(...categoryWords);
+                }
+
+                keywords = Array.from(new Set(keywords)).slice(0, 10);
+            }
+
+            console.log(`🔑 최종 키워드: ${keywords.length}개 - ${keywords.join(', ')}`);
+
+            res.json({
+                keywords: keywords,
+                count: keywords.length
+            });
+
+        } catch (apiError: any) {
+            console.error('네이버 API 오류:', apiError.response?.data || apiError.message);
+
+            if (apiError.response) {
+                console.error('API 오류 상태:', apiError.response.status);
+                console.error('API 오류 헤더:', apiError.response.headers);
+                console.error('API 오류 상세:', JSON.stringify(apiError.response.data));
+            }
+
+            // API 오류 시 상품명에서 키워드 추출
+            let fallbackKeywords: string[] = [];
+
+            if (productTitle) {
+                const titleWords = productTitle
+                    .split(/[\s,/]+/)
+                    .map((w: string) => w.trim())
+                    .filter((w: string) => w.length > 1);
+                fallbackKeywords.push(...titleWords);
+            }
+
+            if (categoryName) {
+                const categoryWords = categoryName
+                    .split('>')
+                    .map((w: string) => w.trim())
+                    .filter((w: string) => w);
+                fallbackKeywords.push(...categoryWords);
+            }
+
+            const keywords = Array.from(new Set(fallbackKeywords)).slice(0, 10);
+
+            console.log(`🔑 대체 키워드 (API 실패): ${keywords.length}개`);
+
+            res.json({
+                keywords: keywords,
+                count: keywords.length,
+                warning: 'API 호출 실패, 상품명에서 키워드를 추출했습니다'
+            });
+        }
+
+    } catch (error: any) {
+        console.error('키워드 생성 오류:', error.response?.data || error.message);
+
+        // API 에러 상세 정보 로깅
+        if (error.response) {
+            console.error('API 에러 상태:', error.response.status);
+            console.error('API 에러 데이터:', error.response.data);
+        }
+
+        // 에러 시 상품명에서 간단히 추출
+        const { productTitle, categoryName } = req.body;
+        const fallbackKeywords: string[] = [];
+
+        if (productTitle) {
+            const titleWords = productTitle.split(/[\s,/]+/).filter((word: string) => word.length > 1);
+            fallbackKeywords.push(...titleWords.slice(0, 5));
+        }
+
+        if (categoryName) {
+            const categoryWords = categoryName.split('>').map((w: string) => w.trim()).filter((w: string) => w);
+            fallbackKeywords.push(...categoryWords);
+        }
+
+        const uniqueKeywords = Array.from(new Set(fallbackKeywords)).slice(0, 10);
+
+        res.json({
+            keywords: uniqueKeywords,
+            count: uniqueKeywords.length,
+            warning: 'API 호출 실패, 상품명에서 키워드를 추출했습니다'
+        });
     }
 });
 

@@ -228,6 +228,56 @@
             color: white;
             border-color: #667eea;
         }
+        /* 2x2 그리드 버튼 스타일 */
+        .action-buttons-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            padding: 5px;
+        }
+        .action-btn-grid {
+            width: 40px;
+            height: 40px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-btn-grid:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            transform: scale(1.05);
+        }
+        /* 테이블 컬럼 리사이징 */
+        .products-table th {
+            position: relative;
+            user-select: none;
+        }
+        .products-table th.resizable {
+            position: relative;
+        }
+        .products-table th.resizable::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            cursor: col-resize;
+            background: transparent;
+        }
+        .products-table th.resizable:hover::after {
+            background: rgba(102, 126, 234, 0.3);
+        }
+        .products-table th.resizing {
+            user-select: none;
+        }
         .view-detail-btn {
             padding: 6px 12px;
             background: #667eea;
@@ -339,10 +389,13 @@
         .modal-content {
             background: #f8f9fa;
             border-radius: 20px;
-            max-width: 900px;
-            width: 100%;
+            max-width: 1400px;
+            width: 95%;
+            max-height: 90vh;
             margin: 20px auto;
-            overflow: hidden;
+            overflow-y: auto;
+            transform: scale(0.85);
+            transform-origin: top center;
         }
         .modal-close {
             position: absolute;
@@ -401,6 +454,59 @@
             object-fit: cover;
         }
         .thumb-item:hover { transform: scale(1.05); }
+        .thumb-item.dragging {
+            opacity: 0.5;
+            border: 2px dashed #667eea;
+        }
+        .thumb-item.drag-over {
+            border: 2px solid #667eea;
+            background: #f0f4ff;
+        }
+        .thumb-order {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        .thumb-actions {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            gap: 5px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+        }
+        .thumb-item:hover .thumb-actions {
+            opacity: 1;
+        }
+        .thumb-action-btn {
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .thumb-action-btn:hover {
+            background: rgba(0,0,0,0.9);
+        }
         .thumb-label {
             position: absolute;
             bottom: 0;
@@ -1146,16 +1252,16 @@
                 <table class="products-table">
                     <thead>
                         <tr>
-                            <th width="60">이미지</th>
-                            <th width="120">구분(수집)</th>
-                            <th>상품명(수집)</th>
-                            <th width="120">원본트마켓</th>
-                            <th width="100">마켓명/관리자</th>
-                            <th width="100">유입일</th>
-                            <th width="150">복문수정<br/>[이미지|상세내|가격관리|정보]</th>
-                            <th width="120">원본상품상세</th>
-                            <th width="100">업로드</th>
-                            <th width="120">상품ID</th>
+                            <th class="resizable" width="60">이미지</th>
+                            <th class="resizable" width="120">구분(수집)</th>
+                            <th class="resizable">상품명(수집)</th>
+                            <th class="resizable" width="120">원본마켓</th>
+                            <th class="resizable" width="100">마켓명/관리자</th>
+                            <th class="resizable" width="100">유입일</th>
+                            <th class="resizable" width="150">빠른수정</th>
+                            <th class="resizable" width="120">원본상품상세</th>
+                            <th class="resizable" width="100">업로드</th>
+                            <th class="resizable" width="120">상품ID</th>
                         </tr>
                     </thead>
                     <tbody id="products-table-body">
@@ -1259,24 +1365,24 @@
     </div>
     
     <!-- 카테고리 선택 모달 -->
-    <div id="category-modal" class="edit-modal">
+    <div id="category-modal" class="edit-modal" style="z-index:3000;">
         <div class="edit-modal-content" style="max-width:700px; max-height:80vh; overflow:hidden; display:flex; flex-direction:column;">
             <div class="edit-modal-title">📂 스마트스토어 카테고리 선택</div>
-            
+
             <!-- 검색 -->
             <div style="margin-bottom:15px;">
-                <input type="text" id="category-search" placeholder="카테고리 검색 (예: 장난감, 의류, 가방...)" 
+                <input type="text" id="category-search" placeholder="카테고리 검색 (예: 장난감, 의류, 가방...)"
                        style="width:100%; padding:12px 15px; border:2px solid #e0e0e0; border-radius:8px; font-size:14px;"
                        oninput="searchCategories(this.value)">
             </div>
-            
+
             <!-- 선택된 경로 표시 -->
             <div id="category-breadcrumb" style="margin-bottom:15px; padding:10px 15px; background:#f8f9fa; border-radius:8px; font-size:13px; color:#666; min-height:40px;">
                 카테고리를 선택해주세요
             </div>
-            
+
             <!-- 카테고리 선택 영역 -->
-            <div style="display:flex; gap:10px; flex:1; overflow:hidden; min-height:300px;">
+            <div id="category-selection-area" style="display:flex; gap:10px; overflow:hidden; max-height:400px;">
                 <!-- 대분류 -->
                 <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column;">
                     <div style="padding:10px; background:#667eea; color:white; font-weight:600; font-size:13px;">대분류</div>
@@ -1298,15 +1404,89 @@
                     <div id="category-level-4" style="flex:1; overflow-y:auto; padding:5px;"></div>
                 </div>
             </div>
-            
+
             <!-- 검색 결과 (검색 시에만 표시) -->
-            <div id="category-search-results" style="display:none; flex:1; overflow-y:auto; border:1px solid #e0e0e0; border-radius:8px; padding:10px; min-height:300px;"></div>
-            
-            <div class="edit-buttons" style="margin-top:20px;">
+            <div id="category-search-results" style="display:none; overflow-y:auto; border:1px solid #e0e0e0; border-radius:8px; padding:10px; max-height:400px; margin-top:10px;"></div>
+
+            <div class="edit-buttons" style="margin-top:20px; flex-shrink:0;">
                 <button class="btn-cancel" onclick="closeCategoryModal()">취소</button>
                 <button class="btn-save" id="category-save-btn" onclick="saveCategory()" disabled>📂 카테고리 저장</button>
             </div>
         </div>
+    </div>
+
+    <!-- 썸네일 이미지 관리 모달 -->
+    <div id="thumbnail-modal" class="edit-modal">
+        <div class="edit-modal-content" style="max-width:900px; max-height:90vh; overflow-y:auto;">
+            <div class="edit-modal-title">📷 썸네일 이미지 관리</div>
+
+            <div style="margin-bottom:15px; padding:12px; background:#f0f7ff; border-radius:8px; color:#0066cc; font-size:13px;">
+                💡 이미지를 드래그하여 순서를 변경하거나, 클릭하여 다운로드/업로드할 수 있습니다.
+            </div>
+
+            <div id="thumbnail-images-container" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:15px; margin-top:20px;">
+                <!-- 썸네일 이미지들이 여기에 표시됩니다 -->
+            </div>
+
+            <div class="edit-buttons" style="margin-top:25px;">
+                <button class="btn-save" onclick="saveThumbnailChanges()">💾 저장</button>
+                <button class="btn-cancel" onclick="closeThumbnailModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 상세 이미지 관리 모달 -->
+    <div id="detail-image-modal" class="edit-modal">
+        <div class="edit-modal-content" style="max-width:900px; max-height:90vh; overflow-y:auto;">
+            <div class="edit-modal-title">📝 상세 이미지 관리</div>
+
+            <div style="margin-bottom:15px; padding:12px; background:#f0f7ff; border-radius:8px; color:#0066cc; font-size:13px;">
+                💡 이미지를 드래그하여 순서를 변경하거나, 클릭하여 다운로드/업로드할 수 있습니다.
+            </div>
+
+            <div id="detail-images-container" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:15px; margin-top:20px;">
+                <!-- 상세 이미지들이 여기에 표시됩니다 -->
+            </div>
+
+            <div class="edit-buttons" style="margin-top:25px;">
+                <button class="btn-save" onclick="saveDetailImageChanges()">💾 저장</button>
+                <button class="btn-cancel" onclick="closeDetailImageModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 가격 관리 모달 -->
+    <div id="pricing-modal" class="edit-modal">
+        <div class="edit-modal-content" style="max-width:800px; max-height:90vh; overflow-y:auto;">
+            <div class="edit-modal-title">💰 가격 관리</div>
+
+            <div id="pricing-modal-content">
+                <!-- 가격 설정 내용이 여기에 표시됩니다 -->
+            </div>
+
+            <div class="edit-buttons" style="margin-top:25px; display:flex; gap:10px;">
+                <button class="btn-save" onclick="savePricingChanges()">💾 저장</button>
+                <button class="btn-reset" onclick="resetPricingModal()" style="background:#ff9800; color:white; padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-size:14px;">🔄 초기화</button>
+                <button class="btn-cancel" onclick="cancelPricingModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 상품 정보 모달 (카테고리) -->
+    <div id="info-modal" class="edit-modal">
+        <div class="edit-modal-content" style="max-width:600px; max-height:90vh; overflow-y:auto;">
+            <div class="edit-modal-title">ℹ️ 상품 정보</div>
+
+            <div id="info-modal-content">
+                <!-- 카테고리 설정 내용이 여기에 표시됩니다 -->
+            </div>
+
+            <div class="edit-buttons" style="margin-top:25px;">
+                <button class="btn-save" onclick="saveInfoChanges()">💾 저장</button>
+                <button class="btn-cancel" onclick="closeInfoModal()">닫기</button>
+            </div>
+        </div>
+    </div>
 
         </div> <!-- End of products-tab -->
 
@@ -1410,6 +1590,32 @@
                             <label class="setting-label">제주 및 도서산간 추가배송비</label>
                             <input type="number" id="extra-shipping-fee" class="setting-input" value="5000">
                         </div>
+                    </div>
+                </div>
+
+                <!-- 네이버 키워드 API 설정 -->
+                <div class="settings-section">
+                    <h2 class="settings-title">🔑 네이버 검색광고 API 설정 (키워드 도구)</h2>
+                    <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin-bottom:20px; font-size:13px; color:#666;">
+                        <p style="margin-bottom:8px;">✨ AI 연관 키워드 생성 기능을 사용하려면 아래 정보를 입력하세요</p>
+                        <p style="margin-bottom:8px;">📌 <strong>필수 항목:</strong> 고객 ID, 액세스 라이선스, 비밀키</p>
+                        <p style="margin-bottom:0;">💡 네이버 검색광고 관리 시스템에서 API 인증키 발급 후 입력하세요</p>
+                        <p style="margin-top:8px; margin-bottom:0;">🔗 <a href="https://manage.searchad.naver.com" target="_blank" style="color:#667eea;">네이버 검색광고 바로가기</a></p>
+                    </div>
+
+                    <div class="setting-row">
+                        <label class="setting-label">고객 ID (Customer ID) <span style="color:#e74c3c;">*</span></label>
+                        <input type="text" id="keyword-customer-id" class="setting-input" placeholder="네이버 검색광고 고객 ID">
+                    </div>
+
+                    <div class="setting-row">
+                        <label class="setting-label">액세스 라이선스 (Access License) <span style="color:#e74c3c;">*</span></label>
+                        <input type="text" id="keyword-access-license" class="setting-input" placeholder="API 액세스 라이선스">
+                    </div>
+
+                    <div class="setting-row">
+                        <label class="setting-label">비밀키 (Secret Key) <span style="color:#e74c3c;">*</span></label>
+                        <input type="password" id="keyword-secret-key" class="setting-input" placeholder="API 비밀키">
                     </div>
                 </div>
 
@@ -1932,12 +2138,63 @@
         let products = [];
         let allProducts = []; // 필터링용 전체 상품 목록
         let currentExchangeRate = 190; // 기본값
+        let currentDetailProduct = null; // 상세페이지 현재 제품 정보
         
         window.onload = async () => {
             await fetchExchangeRate();
             await checkNaverAuthStatus();
             loadProducts();
+            initTableColumnResize();
         };
+
+        // ==================== 테이블 컬럼 리사이징 ====================
+        function initTableColumnResize() {
+            const table = document.querySelector('.products-table');
+            if (!table) return;
+
+            const ths = table.querySelectorAll('th.resizable');
+            let isResizing = false;
+            let currentTh = null;
+            let startX = 0;
+            let startWidth = 0;
+
+            ths.forEach(th => {
+                th.addEventListener('mousedown', (e) => {
+                    const rect = th.getBoundingClientRect();
+                    const isRightEdge = e.clientX > rect.right - 10;
+
+                    if (isRightEdge) {
+                        isResizing = true;
+                        currentTh = th;
+                        startX = e.clientX;
+                        startWidth = th.offsetWidth;
+                        th.classList.add('resizing');
+                        document.body.style.cursor = 'col-resize';
+                        e.preventDefault();
+                    }
+                });
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                const width = startWidth + (e.clientX - startX);
+                if (width > 50) { // 최소 너비 50px
+                    currentTh.style.width = width + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    if (currentTh) {
+                        currentTh.classList.remove('resizing');
+                    }
+                    currentTh = null;
+                    document.body.style.cursor = '';
+                }
+            });
+        }
         
         // ==================== 네이버 API 인증 ====================
         async function checkNaverAuthStatus() {
@@ -2287,11 +2544,11 @@
                         <td>${marketName}</td>
                         <td>${createdDate}</td>
                         <td>
-                            <div class="action-buttons">
-                                <button class="action-btn" title="이미지" onclick="showDetail('${productId}')">📷</button>
-                                <button class="action-btn" title="상세내용" onclick="showDetail('${productId}')">📝</button>
-                                <button class="action-btn" title="가격관리" onclick="showDetail('${productId}')">💰</button>
-                                <button class="action-btn" title="정보" onclick="showDetail('${productId}')">ℹ️</button>
+                            <div class="action-buttons-grid">
+                                <button class="action-btn-grid" title="이미지" onclick="showThumbnailModal('${productId}')">📷</button>
+                                <button class="action-btn-grid" title="상세내용" onclick="showDetailImageModal('${productId}')">📝</button>
+                                <button class="action-btn-grid" title="가격관리" onclick="showPricingModal('${productId}')">💰</button>
+                                <button class="action-btn-grid" title="카테고리" onclick="showInfoModal('${productId}')">ℹ️</button>
                             </div>
                         </td>
                         <td>
@@ -2328,7 +2585,8 @@
             try {
                 const res = await fetch(`/api/products/extracted/${id}`);
                 const p = await res.json();
-                
+                currentDetailProduct = p; // 제품 정보 저장
+
                 // 썸네일 이미지 (드래그 정렬 가능)
                 const thumbsHtml = (p.images?.length > 0)
                     ? p.images.map((url, i) => `
@@ -2459,7 +2717,7 @@
 
                         <!-- 탭 메뉴 -->
                         <div class="pricing-tabs">
-                            <button class="pricing-tab active" onclick="switchPricingTab('price-${id}')">💰 상품 가격</button>
+                            <button class="pricing-tab active" onclick="switchPricingTab('price-${id}')">💰 원본상품가격</button>
                             <button class="pricing-tab" onclick="switchPricingTab('selling-${id}')">💵 판매가 설정</button>
                             <button class="pricing-tab" onclick="switchPricingTab('shipping-${id}')">🚚 배송비</button>
                         </div>
@@ -2482,14 +2740,27 @@
                         <div class="pricing-tab-content" id="selling-${id}">
                             <!-- 가격 배수 (X) -->
                             <div style="margin-bottom:20px;">
-                                <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">가격 배수 (X)</div>
+                                <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">1단계: 가격 배수 (X)</div>
                                 <div id="price-multiply-options-${id}" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;"></div>
+                                <input type="hidden" id="selected-multiplier-${id}" value="1">
                             </div>
 
                             <!-- 가격 추가 (+) -->
                             <div style="margin-bottom:20px;">
-                                <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">가격 추가 (+)</div>
+                                <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">2단계: 추가 금액 (+)</div>
+                                <div style="font-size:12px; color:#888; margin-bottom:8px;">※ 배수 적용 후 추가 금액이 더해집니다</div>
                                 <div id="price-add-options-${id}" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;"></div>
+                                <input type="hidden" id="selected-add-amount-${id}" value="0">
+                            </div>
+
+                            <!-- 직접 입력 -->
+                            <div style="margin-bottom:20px;">
+                                <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">💰 직접 입력</div>
+                                <div style="font-size:12px; color:#888; margin-bottom:8px;">※ 판매가를 직접 입력하면 배수와 추가 금액은 무시됩니다</div>
+                                <div style="display:flex; gap:8px;">
+                                    <input type="number" id="manual-price-input-${id}" placeholder="판매가를 직접 입력하세요" style="flex:1; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
+                                    <button onclick="applyManualPrice('${id}', ${p.price || 0})" style="padding:10px 20px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; white-space:nowrap;">적용</button>
+                                </div>
                             </div>
 
                             <!-- 판매가 표시 -->
@@ -2498,6 +2769,13 @@
                                 <div id="selling-price-display-${id}" style="font-size:24px; font-weight:700; color:#e91e63; padding:12px; background:#f8f9fa; border-radius:6px; text-align:center;">
                                     ${p.selling_price ? '₩' + p.selling_price.toLocaleString() + '원' : '가격을 설정하세요'}
                                 </div>
+                                <div id="price-calculation-detail-${id}" style="font-size:12px; color:#888; text-align:center; margin-top:8px;"></div>
+                            </div>
+
+                            <!-- 저장 및 초기화 버튼 -->
+                            <div style="display:flex; gap:10px; margin-top:20px;">
+                                <button onclick="saveDetailPrice('${id}', ${krwPrice})" style="flex:1; padding:12px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-weight:600;">💾 가격 저장</button>
+                                <button onclick="resetDetailPrice('${id}', ${krwPrice})" style="flex:1; padding:12px; background:#ff9800; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-weight:600;">🔄 초기화</button>
                             </div>
                         </div>
 
@@ -2551,11 +2829,35 @@
                             }
                         </div>
                     </div>
-                    
+
+                    <!-- 상품 키워드 -->
+                    <div class="info-card">
+                        <div class="info-card-title">🔑 상품 키워드</div>
+                        <div style="padding:15px;">
+                            <button id="generate-keywords-detail-${id}" onclick="generateKeywords('${id}', 'detail')" style="width:100%; padding:12px; background:#667eea; color:white; border:none; border-radius:6px; font-size:14px; cursor:pointer; margin-bottom:12px;">
+                                ✨ AI 키워드 생성
+                            </button>
+                            <!-- AI 생성된 키워드 버튼 표시 영역 -->
+                            <div id="generated-keywords-detail-${id}" style="display:none; margin-bottom:12px; padding:12px; background:#f0f4ff; border-radius:6px; border:1px solid #667eea;">
+                                <div style="font-size:13px; color:#667eea; font-weight:600; margin-bottom:8px;">💡 추천 키워드 (클릭하여 추가)</div>
+                                <div id="generated-keywords-buttons-detail-${id}" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+                            </div>
+                            <div style="font-size:12px; color:#888; margin-bottom:8px;">키워드를 쉼표(,)로 구분하여 입력하세요</div>
+                            <textarea id="keywords-input-detail-${id}" rows="3" placeholder="예: 레고, 레고블럭, 레고클래식" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:6px; font-size:14px; resize:vertical; font-family:inherit;">${p.keywords || ''}</textarea>
+                            <button onclick="saveKeywordsTags('${id}', 'detail')" style="width:100%; padding:10px; background:#28a745; color:white; border:none; border-radius:6px; font-size:13px; cursor:pointer; margin-top:10px;">
+                                💾 키워드 저장
+                            </button>
+                            <div id="keywords-tags-detail-${id}" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; min-height:40px; padding:8px; background:#f8f9fa; border-radius:6px;">
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- 옵션 -->
                     <div class="info-card">
                         <div class="info-card-title">⚙️ 상품 옵션 <span style="color:#888;font-weight:normal;">(${p.options?.length || 0}개)</span></div>
-                        ${optionsHtml}
+                        <div id="options-container-${id}">
+                            ${optionsHtml}
+                        </div>
                     </div>
                     
                     <!-- 상세 이미지 -->
@@ -2582,7 +2884,12 @@
 
                 // 환경설정에서 금액 옵션들 로드
                 loadPricingOptions(id, krwPrice);
-                
+
+                // 키워드 태그 표시
+                if (p.keywords) {
+                    displayKeywordTags(id, 'detail', p.keywords);
+                }
+
                 // 상품명 편집 버튼 이벤트 연결
                 const editTitleBtn = document.getElementById('edit-title-btn');
                 if (editTitleBtn) {
@@ -2592,6 +2899,11 @@
                         openEditTitle(cnTitle, krTitle, id);
                     };
                 }
+
+                // 자동 번역 적용 (중국어 -> 한국어)
+                setTimeout(() => {
+                    autoTranslateChineseContent();
+                }, 500);
                 
             } catch (err) {
                 console.error(err);
@@ -2711,9 +3023,834 @@
         }
         
         function closeModal() {
-            document.getElementById('modal').classList.remove('show');
+            if (confirm('상세페이지를 종료하시겠습니까?')) {
+                document.getElementById('modal').classList.remove('show');
+            }
         }
-        
+
+        // ==================== 썸네일 이미지 모달 ====================
+        let currentThumbnailProductId = null;
+        let thumbnailImages = [];
+
+        async function showThumbnailModal(productId) {
+            currentThumbnailProductId = productId;
+
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}`);
+                const product = await res.json();
+                thumbnailImages = product.images || [];
+
+                const container = document.getElementById('thumbnail-images-container');
+                container.innerHTML = thumbnailImages.map((url, i) => `
+                    <div class="thumb-item" draggable="true" data-index="${i}" data-url="${url}">
+                        <div class="thumb-order">${i+1}</div>
+                        <div class="thumb-actions">
+                            <button class="thumb-action-btn" onclick="downloadThumbnail(${i})" title="다운로드">⬇️</button>
+                            <button class="thumb-action-btn" onclick="uploadNewThumbnail(${i})" title="업로드">📤</button>
+                        </div>
+                        <img src="${url}" alt="썸네일 ${i+1}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f5f5f5%22 width=%22100%%22 height=%22100%%22/></svg>'">
+                    </div>
+                `).join('');
+
+                initThumbnailDragDrop();
+                document.getElementById('thumbnail-modal').classList.add('show');
+            } catch (err) {
+                console.error('썸네일 로드 실패:', err);
+                showToast('썸네일 로드 실패', 'error');
+            }
+        }
+
+        function closeThumbnailModal() {
+            document.getElementById('thumbnail-modal').classList.remove('show');
+        }
+
+        function initThumbnailDragDrop() {
+            const container = document.getElementById('thumbnail-images-container');
+            const items = container.querySelectorAll('.thumb-item');
+
+            items.forEach(item => {
+                item.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', item.dataset.index);
+                    item.classList.add('dragging');
+                });
+
+                item.addEventListener('dragend', (e) => {
+                    item.classList.remove('dragging');
+                    document.querySelectorAll('.thumb-item').forEach(i => i.classList.remove('drag-over'));
+                });
+
+                item.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                });
+
+                item.addEventListener('dragenter', (e) => {
+                    if (e.target.closest('.thumb-item')) {
+                        e.target.closest('.thumb-item').classList.add('drag-over');
+                    }
+                });
+
+                item.addEventListener('dragleave', (e) => {
+                    if (e.target.closest('.thumb-item')) {
+                        e.target.closest('.thumb-item').classList.remove('drag-over');
+                    }
+                });
+
+                item.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                    const targetItem = e.target.closest('.thumb-item');
+                    if (!targetItem) return;
+
+                    const targetIndex = parseInt(targetItem.dataset.index);
+
+                    if (draggedIndex !== targetIndex) {
+                        // 배열 순서 변경
+                        const temp = thumbnailImages[draggedIndex];
+                        thumbnailImages.splice(draggedIndex, 1);
+                        thumbnailImages.splice(targetIndex, 0, temp);
+
+                        // 서버에 저장
+                        await saveThumbnailOrder();
+
+                        // UI 새로고침
+                        showThumbnailModal(currentThumbnailProductId);
+                    }
+                });
+            });
+        }
+
+        async function saveThumbnailOrder() {
+            try {
+                const res = await fetch(`/api/products/extracted/${currentThumbnailProductId}/images`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ images: thumbnailImages })
+                });
+
+                if (!res.ok) throw new Error('순서 저장 실패');
+                showToast('이미지 순서가 변경되었습니다');
+            } catch (err) {
+                console.error('순서 저장 실패:', err);
+                showToast('순서 저장 실패', 'error');
+            }
+        }
+
+        function downloadThumbnail(index) {
+            const url = thumbnailImages[index];
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `thumbnail_${index + 1}.jpg`;
+            link.click();
+            showToast(`썸네일 ${index + 1} 다운로드 시작`);
+        }
+
+        function uploadNewThumbnail(index) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('image', file);
+                formData.append('index', index);
+
+                try {
+                    const res = await fetch(`/api/products/extracted/${currentThumbnailProductId}/image/${index}`, {
+                        method: 'PUT',
+                        body: formData
+                    });
+
+                    if (!res.ok) throw new Error('업로드 실패');
+
+                    const data = await res.json();
+                    thumbnailImages[index] = data.imageUrl;
+                    showThumbnailModal(currentThumbnailProductId);
+                    showToast('이미지가 업로드되었습니다');
+                } catch (err) {
+                    console.error('업로드 실패:', err);
+                    showToast('업로드 실패', 'error');
+                }
+            };
+            input.click();
+        }
+
+        // ==================== 상세 이미지 모달 ====================
+        let currentDetailProductId = null;
+        let detailImages = [];
+
+        async function showDetailImageModal(productId) {
+            currentDetailProductId = productId;
+
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}`);
+                const product = await res.json();
+                detailImages = product.detail_images || [];
+
+                const container = document.getElementById('detail-images-container');
+                container.innerHTML = detailImages.map((url, i) => `
+                    <div class="thumb-item" draggable="true" data-index="${i}" data-url="${url}">
+                        <div class="thumb-order">${i+1}</div>
+                        <div class="thumb-actions">
+                            <button class="thumb-action-btn" onclick="downloadDetailImage(${i})" title="다운로드">⬇️</button>
+                            <button class="thumb-action-btn" onclick="uploadNewDetailImage(${i})" title="업로드">📤</button>
+                        </div>
+                        <img src="${url}" alt="상세 ${i+1}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f5f5f5%22 width=%22100%%22 height=%22100%%22/></svg>'">
+                    </div>
+                `).join('');
+
+                initDetailImageDragDrop();
+                document.getElementById('detail-image-modal').classList.add('show');
+            } catch (err) {
+                console.error('상세 이미지 로드 실패:', err);
+                showToast('상세 이미지 로드 실패', 'error');
+            }
+        }
+
+        function closeDetailImageModal() {
+            document.getElementById('detail-image-modal').classList.remove('show');
+        }
+
+        function initDetailImageDragDrop() {
+            const container = document.getElementById('detail-images-container');
+            const items = container.querySelectorAll('.thumb-item');
+
+            items.forEach(item => {
+                item.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', item.dataset.index);
+                    item.classList.add('dragging');
+                });
+
+                item.addEventListener('dragend', (e) => {
+                    item.classList.remove('dragging');
+                    document.querySelectorAll('.thumb-item').forEach(i => i.classList.remove('drag-over'));
+                });
+
+                item.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                });
+
+                item.addEventListener('dragenter', (e) => {
+                    if (e.target.closest('.thumb-item')) {
+                        e.target.closest('.thumb-item').classList.add('drag-over');
+                    }
+                });
+
+                item.addEventListener('dragleave', (e) => {
+                    if (e.target.closest('.thumb-item')) {
+                        e.target.closest('.thumb-item').classList.remove('drag-over');
+                    }
+                });
+
+                item.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                    const targetItem = e.target.closest('.thumb-item');
+                    if (!targetItem) return;
+
+                    const targetIndex = parseInt(targetItem.dataset.index);
+
+                    if (draggedIndex !== targetIndex) {
+                        const temp = detailImages[draggedIndex];
+                        detailImages.splice(draggedIndex, 1);
+                        detailImages.splice(targetIndex, 0, temp);
+
+                        await saveDetailImageOrder();
+                        showDetailImageModal(currentDetailProductId);
+                    }
+                });
+            });
+        }
+
+        async function saveDetailImageOrder() {
+            try {
+                const res = await fetch(`/api/products/extracted/${currentDetailProductId}/detail-images`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ detail_images: detailImages })
+                });
+
+                if (!res.ok) throw new Error('순서 저장 실패');
+                showToast('상세 이미지 순서가 변경되었습니다');
+            } catch (err) {
+                console.error('순서 저장 실패:', err);
+                showToast('순서 저장 실패', 'error');
+            }
+        }
+
+        function downloadDetailImage(index) {
+            const url = detailImages[index];
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `detail_${index + 1}.jpg`;
+            link.click();
+            showToast(`상세 이미지 ${index + 1} 다운로드 시작`);
+        }
+
+        function uploadNewDetailImage(index) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('image', file);
+                formData.append('index', index);
+
+                try {
+                    const res = await fetch(`/api/products/extracted/${currentDetailProductId}/detail-image/${index}`, {
+                        method: 'PUT',
+                        body: formData
+                    });
+
+                    if (!res.ok) throw new Error('업로드 실패');
+
+                    const data = await res.json();
+                    detailImages[index] = data.imageUrl;
+                    showDetailImageModal(currentDetailProductId);
+                    showToast('상세 이미지가 업로드되었습니다');
+                } catch (err) {
+                    console.error('업로드 실패:', err);
+                    showToast('업로드 실패', 'error');
+                }
+            };
+            input.click();
+        }
+
+        // ==================== 가격 관리 모달 ====================
+        let currentPricingProductId = null;
+        let currentPricingProduct = null;
+        let originalPricingSettings = null; // 원본 가격 설정 저장
+
+        async function showPricingModal(productId) {
+            currentPricingProductId = productId;
+
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}`);
+                const product = await res.json();
+                currentPricingProduct = product;
+
+                const krwPrice = product.krw_price || (product.price ? Math.round(product.price * (product.exchange_rate || 209)) : 0);
+                const multiplier = product.price_multiplier || 1;
+                const addAmount = product.price_add_amount || 0;
+
+                // 원본 가격 설정 저장
+                originalPricingSettings = {
+                    multiplier: multiplier,
+                    addAmount: addAmount,
+                    sellingPrice: product.selling_price || null,
+                    basePrice: krwPrice
+                };
+
+                // 옵션 가격 HTML 생성
+                let optionsHtml = '';
+                if (product.options && product.options.length > 0) {
+                    optionsHtml = `
+                        <div style="margin-bottom:20px;">
+                            <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">📦 옵션 가격</div>
+                            <div id="option-prices-container-modal-${productId}" style="max-height:300px; overflow-y:auto; border:1px solid #e0e0e0; border-radius:8px; padding:10px;">
+                                ${product.options.map((opt, optIdx) => {
+                                    return opt.values.map((val, valIdx) => {
+                                        const optCnyPrice = parseFloat(val.price) || 0;
+                                        const optBaseKrw = Math.round(optCnyPrice * (product.exchange_rate || 209));
+                                        const optCalculatedPrice = Math.round(optBaseKrw * multiplier) + addAmount;
+
+                                        return `
+                                            <div style="padding:8px; margin-bottom:5px; background:#f8f9fa; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                                                <div>
+                                                    <div style="font-size:13px; font-weight:600; color:#333;">${val.name_kr || val.name}</div>
+                                                    <div style="font-size:11px; color:#666;">원가: ¥${optCnyPrice.toFixed(2)} → ₩${optBaseKrw.toLocaleString()}원</div>
+                                                </div>
+                                                <div style="text-align:right;">
+                                                    <div style="font-size:14px; font-weight:700; color:#e91e63;">₩${optCalculatedPrice.toLocaleString()}원</div>
+                                                    <div style="font-size:10px; color:#888;">(${multiplier}배 + ${addAmount.toLocaleString()}원)</div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('');
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const pricingContent = document.getElementById('pricing-modal-content');
+                pricingContent.innerHTML = `
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">💰 상품 가격</div>
+                        <div style="padding:15px; background:#f8f9fa; border-radius:8px;">
+                            <div style="font-size:13px; color:#666; margin-bottom:5px;">타오바오 원가 (CNY)</div>
+                            <div style="font-size:20px; font-weight:700; color:#ff5000;">¥${(product.price || 0).toFixed(2)}</div>
+                            <div style="font-size:13px; color:#666; margin-top:10px;">원화 환산 (KRW)</div>
+                            <div style="font-size:24px; font-weight:700; color:#333;">₩${krwPrice.toLocaleString()}원</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">1단계: 가격 배수 (X)</div>
+                        <div id="price-multiply-options-modal-${productId}" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;"></div>
+                        <input type="hidden" id="selected-multiplier-modal-${productId}" value="${multiplier}">
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">2단계: 추가 금액 (+)</div>
+                        <div style="font-size:12px; color:#888; margin-bottom:8px;">※ 배수 적용 후 추가 금액이 더해집니다</div>
+                        <div id="price-add-options-modal-${productId}" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;"></div>
+                        <input type="hidden" id="selected-add-amount-modal-${productId}" value="${addAmount}">
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">💰 직접 입력</div>
+                        <div style="font-size:12px; color:#888; margin-bottom:8px;">※ 판매가를 직접 입력하면 배수와 추가 금액은 무시됩니다</div>
+                        <div style="display:flex; gap:8px;">
+                            <input type="number" id="manual-price-input-modal-${productId}" placeholder="판매가를 직접 입력하세요" style="flex:1; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
+                            <button onclick="applyManualPriceModal('${productId}', ${krwPrice})" style="padding:10px 20px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; white-space:nowrap;">적용</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:15px;">
+                        <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">최종 판매가</div>
+                        <div id="selling-price-display-modal-${productId}" style="font-size:24px; font-weight:700; color:#e91e63; padding:12px; background:#f8f9fa; border-radius:6px; text-align:center;">
+                            ${product.selling_price ? '₩' + product.selling_price.toLocaleString() + '원' : '가격을 설정하세요'}
+                        </div>
+                        <div id="price-calculation-detail-modal-${productId}" style="font-size:12px; color:#888; text-align:center; margin-top:8px;"></div>
+                    </div>
+
+                    ${optionsHtml}
+
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">🚚 배송비</div>
+                        <div id="shipping-fee-options-modal-${productId}" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;"></div>
+                        <input type="number" id="shipping-fee-modal-${productId}" value="${product.shipping_fee || ''}" placeholder="배송비 입력" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
+                        <label style="display:flex; align-items:center; gap:8px; margin-top:8px; cursor:pointer;">
+                            <input type="checkbox" id="free-shipping-modal-${productId}" ${product.free_shipping ? 'checked' : ''} style="width:18px; height:18px;">
+                            <span style="font-size:14px; color:#666;">무료배송</span>
+                        </label>
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">↩️ 반품비</div>
+                        <div id="return-fee-options-modal-${productId}" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;"></div>
+                        <input type="number" id="return-fee-modal-${productId}" value="${product.return_fee || ''}" placeholder="반품비 입력" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
+                    </div>
+
+                    <!-- 키워드 섹션 -->
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">🔑 상품 키워드</div>
+                        <button id="generate-keywords-modal-${productId}" onclick="generateKeywords('${productId}', 'modal')" style="width:100%; padding:12px; background:#667eea; color:white; border:none; border-radius:6px; font-size:14px; cursor:pointer; margin-bottom:10px;">
+                            ✨ AI 키워드 생성
+                        </button>
+                        <!-- AI 생성된 키워드 버튼 표시 영역 -->
+                        <div id="generated-keywords-modal-${productId}" style="display:none; margin-bottom:12px; padding:12px; background:#f0f4ff; border-radius:6px; border:1px solid #667eea;">
+                            <div style="font-size:13px; color:#667eea; font-weight:600; margin-bottom:8px;">💡 추천 키워드 (클릭하여 추가)</div>
+                            <div id="generated-keywords-buttons-modal-${productId}" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+                        </div>
+                        <div style="font-size:12px; color:#888; margin-bottom:8px;">키워드를 쉼표(,)로 구분하여 입력하세요</div>
+                        <textarea id="keywords-input-modal-${productId}" rows="3" placeholder="예: 레고, 레고블럭, 레고클래식" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px; resize:vertical;">${product.keywords || ''}</textarea>
+                        <button onclick="saveKeywordsTags('${productId}', 'modal')" style="width:100%; padding:10px; background:#28a745; color:white; border:none; border-radius:6px; font-size:13px; cursor:pointer; margin-top:8px;">
+                            💾 키워드 저장
+                        </button>
+                        <div id="keywords-tags-modal-${productId}" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; min-height:40px; padding:8px; background:#f8f9fa; border-radius:6px;">
+                        </div>
+                    </div>
+                `;
+
+                // 가격 옵션 로드
+                loadPricingOptionsModal(productId, krwPrice);
+
+                // 배송비, 반품비 옵션 로드
+                loadShippingReturnOptions(productId);
+
+                // 키워드 태그 표시
+                if (product.keywords) {
+                    displayKeywordTags(productId, 'modal', product.keywords);
+                }
+
+                document.getElementById('pricing-modal').classList.add('show');
+            } catch (err) {
+                console.error('가격 정보 로드 실패:', err);
+                showToast('가격 정보 로드 실패', 'error');
+            }
+        }
+
+        function loadPricingOptionsModal(productId, basePrice) {
+            // 가격 배수 옵션
+            const multiplyButtons = document.querySelectorAll('#price-multiply-list .price-multiply-btn');
+            const multiplyContainer = document.getElementById(`price-multiply-options-modal-${productId}`);
+
+            if (multiplyContainer && multiplyButtons.length > 0) {
+                const sortedMultiply = Array.from(multiplyButtons).sort((a, b) =>
+                    parseFloat(a.dataset.value) - parseFloat(b.dataset.value)
+                );
+                multiplyContainer.innerHTML = sortedMultiply.map(btn => {
+                    const value = btn.dataset.value;
+                    const resultPrice = Math.round(basePrice * parseFloat(value));
+                    return `<button class="fee-option-btn" onclick="selectMultiplierModal('${productId}', ${value}, ${basePrice})">${value}배 (₩${resultPrice.toLocaleString()})</button>`;
+                }).join('');
+            }
+
+            // 가격 추가 옵션
+            const addButtons = document.querySelectorAll('#price-add-list .price-add-btn');
+            const addContainer = document.getElementById(`price-add-options-modal-${productId}`);
+
+            if (addContainer && addButtons.length > 0) {
+                const sortedAdd = Array.from(addButtons).sort((a, b) =>
+                    parseFloat(a.dataset.value) - parseFloat(b.dataset.value)
+                );
+                addContainer.innerHTML = sortedAdd.map(btn => {
+                    const value = btn.dataset.value;
+                    const resultPrice = basePrice + parseInt(value);
+                    return `<button class="fee-option-btn" onclick="selectAddAmountModal('${productId}', ${value}, ${basePrice})">+${Number(value).toLocaleString()}원 (₩${resultPrice.toLocaleString()})</button>`;
+                }).join('');
+            }
+        }
+
+        function updateOptionPricesModal(productId, multiplier, addAmount) {
+            if (!currentPricingProduct || !currentPricingProduct.options) return;
+
+            const container = document.getElementById(`option-prices-container-modal-${productId}`);
+            if (!container) return;
+
+            const exchangeRate = currentPricingProduct.exchange_rate || 209;
+
+            container.innerHTML = currentPricingProduct.options.map((opt, optIdx) => {
+                return opt.values.map((val, valIdx) => {
+                    const optCnyPrice = parseFloat(val.price) || 0;
+                    const optBaseKrw = Math.round(optCnyPrice * exchangeRate);
+                    const optCalculatedPrice = Math.round(optBaseKrw * multiplier) + addAmount;
+
+                    return `
+                        <div style="padding:8px; margin-bottom:5px; background:#f8f9fa; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-size:13px; font-weight:600; color:#333;">${val.name_kr || val.name}</div>
+                                <div style="font-size:11px; color:#666;">원가: ¥${optCnyPrice.toFixed(2)} → ₩${optBaseKrw.toLocaleString()}원</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:14px; font-weight:700; color:#e91e63;">₩${optCalculatedPrice.toLocaleString()}원</div>
+                                <div style="font-size:10px; color:#888;">(${multiplier}배 + ${addAmount.toLocaleString()}원)</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }).join('');
+        }
+
+        function selectMultiplierModal(productId, multiplier, basePrice) {
+            document.getElementById(`selected-multiplier-modal-${productId}`).value = multiplier;
+            const addAmount = parseInt(document.getElementById(`selected-add-amount-modal-${productId}`).value) || 0;
+            const finalPrice = Math.round(basePrice * multiplier) + addAmount;
+
+            document.getElementById(`selling-price-display-modal-${productId}`).innerHTML = `₩${finalPrice.toLocaleString()}원`;
+            document.getElementById(`price-calculation-detail-modal-${productId}`).innerHTML = `₩${basePrice.toLocaleString()} × ${multiplier} + ₩${addAmount.toLocaleString()}`;
+
+            // 옵션 가격 업데이트
+            updateOptionPricesModal(productId, multiplier, addAmount);
+        }
+
+        function selectAddAmountModal(productId, addAmount, basePrice) {
+            document.getElementById(`selected-add-amount-modal-${productId}`).value = addAmount;
+            const multiplier = parseFloat(document.getElementById(`selected-multiplier-modal-${productId}`).value) || 1;
+            const finalPrice = Math.round(basePrice * multiplier) + addAmount;
+
+            document.getElementById(`selling-price-display-modal-${productId}`).innerHTML = `₩${finalPrice.toLocaleString()}원`;
+            document.getElementById(`price-calculation-detail-modal-${productId}`).innerHTML = `₩${basePrice.toLocaleString()} × ${multiplier} + ₩${addAmount.toLocaleString()}`;
+
+            // 옵션 가격 업데이트
+            updateOptionPricesModal(productId, multiplier, addAmount);
+        }
+
+        function loadShippingReturnOptions(productId) {
+            // 배송비 옵션
+            const shippingButtons = document.querySelectorAll('#shipping-fee-list .fee-btn');
+            const shippingContainer = document.getElementById(`shipping-fee-options-modal-${productId}`);
+
+            if (shippingContainer && shippingButtons.length > 0) {
+                const sortedShipping = Array.from(shippingButtons).sort((a, b) =>
+                    parseFloat(a.dataset.value) - parseFloat(b.dataset.value)
+                );
+                shippingContainer.innerHTML = sortedShipping.map(btn => {
+                    const value = btn.dataset.value;
+                    return `<button class="fee-option-btn" onclick="document.getElementById('shipping-fee-modal-${productId}').value=${value}">${Number(value).toLocaleString()}원</button>`;
+                }).join('');
+            }
+
+            // 반품비 옵션
+            const returnButtons = document.querySelectorAll('#return-fee-list .return-fee-btn');
+            const returnContainer = document.getElementById(`return-fee-options-modal-${productId}`);
+
+            if (returnContainer && returnButtons.length > 0) {
+                const sortedReturn = Array.from(returnButtons).sort((a, b) =>
+                    parseFloat(a.dataset.value) - parseFloat(b.dataset.value)
+                );
+                returnContainer.innerHTML = sortedReturn.map(btn => {
+                    const value = btn.dataset.value;
+                    return `<button class="fee-option-btn" onclick="document.getElementById('return-fee-modal-${productId}').value=${value}">${Number(value).toLocaleString()}원</button>`;
+                }).join('');
+            }
+        }
+
+        function closePricingModal() {
+            document.getElementById('pricing-modal').classList.remove('show');
+        }
+
+        async function applyManualPriceModal(productId, basePrice) {
+            const manualPriceInput = document.getElementById(`manual-price-input-modal-${productId}`);
+            const manualPrice = parseInt(manualPriceInput.value);
+
+            if (!manualPrice || manualPrice <= 0) {
+                showToast('유효한 가격을 입력하세요', 'error');
+                return;
+            }
+
+            const roundedPrice = applyPaymentUnit(manualPrice);
+            const priceDiff = roundedPrice - basePrice;
+
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}/selling-price`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        selling_price: roundedPrice,
+                        price_multiplier: 1,
+                        price_add_amount: priceDiff
+                    })
+                });
+
+                if (!res.ok) throw new Error('판매가 설정 실패');
+
+                document.getElementById(`selling-price-display-modal-${productId}`).textContent = `₩${roundedPrice.toLocaleString()}원`;
+
+                if (roundedPrice !== manualPrice) {
+                    document.getElementById(`price-calculation-detail-modal-${productId}`).textContent =
+                        `직접 입력: ${manualPrice.toLocaleString()}원 → 결제단위 적용: ${roundedPrice.toLocaleString()}원`;
+                } else {
+                    document.getElementById(`price-calculation-detail-modal-${productId}`).textContent =
+                        `직접 입력: ${roundedPrice.toLocaleString()}원`;
+                }
+
+                // 옵션 가격도 차액만큼 업데이트 (배수 1, 추가금액 = 차액)
+                updateOptionPricesModal(productId, 1, priceDiff);
+
+                // Hidden 필드도 업데이트
+                document.getElementById(`selected-multiplier-modal-${productId}`).value = 1;
+                document.getElementById(`selected-add-amount-modal-${productId}`).value = priceDiff;
+
+                manualPriceInput.value = '';
+                showToast(`판매가가 ${roundedPrice.toLocaleString()}원으로 설정되었습니다`);
+            } catch (error) {
+                console.error('판매가 설정 오류:', error);
+                showToast('판매가 설정에 실패했습니다', 'error');
+            }
+        }
+
+        // ==================== 상품 정보 모달 (카테고리) ====================
+        async function showInfoModal(productId) {
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}`);
+                const product = await res.json();
+
+                const infoContent = document.getElementById('info-modal-content');
+                infoContent.innerHTML = `
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">📂 스마트스토어 카테고리</div>
+                        <div id="modal-category-display-${productId}" style="padding:15px; background:#f8f9fa; border-radius:8px;">
+                            ${product.naver_category_path
+                                ? `<div style="display:flex; align-items:center; gap:10px;">
+                                      <span style="color:#28a745; font-size:20px;">✓</span>
+                                      <div>
+                                          <div style="font-weight:600; color:#2c3e50;">${product.naver_category_name || '카테고리 선택됨'}</div>
+                                          <div style="font-size:12px; color:#888; margin-top:4px;">${product.naver_category_path}</div>
+                                      </div>
+                                   </div>`
+                                : `<div style="color:#888; text-align:center; padding:20px;">
+                                      <span style="font-size:24px;">📁</span><br>
+                                      <span style="margin-top:8px; display:block;">카테고리가 선택되지 않았습니다</span>
+                                   </div>`
+                            }
+                        </div>
+                        <button onclick="openCategoryModal('${productId}')" style="margin-top:15px; width:100%; padding:12px; background:#28a745; color:white; border:none; border-radius:6px; font-size:14px; cursor:pointer;">
+                            📂 카테고리 선택
+                        </button>
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">🆔 상품 ID</div>
+                        <div style="padding:12px; background:#f8f9fa; border-radius:8px; font-family:monospace; color:#666;">
+                            ${product.product_id}
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">📅 수집일</div>
+                        <div style="padding:12px; background:#f8f9fa; border-radius:8px; color:#666;">
+                            ${product.created_at ? new Date(product.created_at).toLocaleString('ko-KR') : '-'}
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('info-modal').classList.add('show');
+            } catch (err) {
+                console.error('상품 정보 로드 실패:', err);
+                showToast('상품 정보 로드 실패', 'error');
+            }
+        }
+
+        function closeInfoModal() {
+            document.getElementById('info-modal').classList.remove('show');
+        }
+
+        // ==================== 모달 저장 함수들 ====================
+        async function saveThumbnailChanges() {
+            if (!currentThumbnailProductId) return;
+
+            try {
+                await saveThumbnailOrder();
+                showToast('썸네일 변경사항이 저장되었습니다');
+                closeThumbnailModal();
+                loadProducts();
+            } catch (err) {
+                console.error('저장 실패:', err);
+                showToast('저장 실패', 'error');
+            }
+        }
+
+        async function saveDetailImageChanges() {
+            if (!currentDetailProductId) return;
+
+            try {
+                await saveDetailImageOrder();
+                showToast('상세 이미지 변경사항이 저장되었습니다');
+                closeDetailImageModal();
+                loadProducts();
+            } catch (err) {
+                console.error('저장 실패:', err);
+                showToast('저장 실패', 'error');
+            }
+        }
+
+        async function savePricingChanges() {
+            if (!currentPricingProductId) return;
+
+            try {
+                const productId = currentPricingProductId;
+                const multiplier = parseFloat(document.getElementById(`selected-multiplier-modal-${productId}`).value) || 1;
+                const addAmount = parseInt(document.getElementById(`selected-add-amount-modal-${productId}`).value) || 0;
+                const shippingFee = parseInt(document.getElementById(`shipping-fee-modal-${productId}`).value) || 0;
+                const returnFee = parseInt(document.getElementById(`return-fee-modal-${productId}`).value) || 0;
+                const freeShipping = document.getElementById(`free-shipping-modal-${productId}`).checked;
+
+                // 가격 배수/추가금액 저장
+                const basePrice = originalPricingSettings.basePrice;
+                const calculatedPrice = Math.round(basePrice * multiplier) + addAmount;
+
+                await fetch(`/api/products/extracted/${productId}/selling-price`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        selling_price: calculatedPrice,
+                        price_multiplier: multiplier,
+                        price_add_amount: addAmount
+                    })
+                });
+
+                // 배송비 저장
+                await fetch(`/api/products/extracted/${productId}/shipping`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        shipping_fee: shippingFee,
+                        free_shipping: freeShipping
+                    })
+                });
+
+                // 반품비 저장
+                await fetch(`/api/products/extracted/${productId}/return-fee`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ return_fee: returnFee })
+                });
+
+                showToast('가격 설정이 저장되었습니다');
+                closePricingModal();
+                loadProducts();
+            } catch (err) {
+                console.error('저장 실패:', err);
+                showToast('저장 실패', 'error');
+            }
+        }
+
+        function cancelPricingModal() {
+            if (!currentPricingProductId || !originalPricingSettings) {
+                closePricingModal();
+                return;
+            }
+
+            const productId = currentPricingProductId;
+
+            // 원본 설정으로 복원
+            document.getElementById(`selected-multiplier-modal-${productId}`).value = originalPricingSettings.multiplier;
+            document.getElementById(`selected-add-amount-modal-${productId}`).value = originalPricingSettings.addAmount;
+
+            if (originalPricingSettings.sellingPrice) {
+                document.getElementById(`selling-price-display-modal-${productId}`).innerHTML = `₩${originalPricingSettings.sellingPrice.toLocaleString()}원`;
+            } else {
+                document.getElementById(`selling-price-display-modal-${productId}`).innerHTML = '가격을 설정하세요';
+            }
+
+            // 옵션 가격도 원본으로 복원
+            updateOptionPricesModal(productId, originalPricingSettings.multiplier, originalPricingSettings.addAmount);
+
+            closePricingModal();
+        }
+
+        async function resetPricingModal() {
+            if (!currentPricingProductId || !originalPricingSettings) return;
+
+            const productId = currentPricingProductId;
+            const basePrice = originalPricingSettings.basePrice;
+
+            try {
+                // 서버에 초기화 요청 (배수 1, 추가금액 0)
+                await fetch(`/api/products/extracted/${productId}/selling-price`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        selling_price: basePrice,
+                        price_multiplier: 1,
+                        price_add_amount: 0
+                    })
+                });
+
+                // UI 업데이트
+                document.getElementById(`selected-multiplier-modal-${productId}`).value = 1;
+                document.getElementById(`selected-add-amount-modal-${productId}`).value = 0;
+                document.getElementById(`selling-price-display-modal-${productId}`).innerHTML = `₩${basePrice.toLocaleString()}원`;
+                document.getElementById(`price-calculation-detail-modal-${productId}`).innerHTML = '원화 환산 가격';
+
+                // 옵션 가격도 초기화
+                updateOptionPricesModal(productId, 1, 0);
+
+                showToast('가격이 원래대로 초기화되었습니다');
+                loadProducts();
+            } catch (err) {
+                console.error('초기화 실패:', err);
+                showToast('초기화 실패', 'error');
+            }
+        }
+
+        async function saveInfoChanges() {
+            showToast('정보가 저장되었습니다');
+            closeInfoModal();
+            loadProducts();
+        }
+
         async function deleteProduct(id) {
             if (!confirm('정말 삭제하시겠습니까?')) return;
             
@@ -3331,7 +4468,21 @@
                 showToast('카테고리가 저장되었습니다');
                 closeCategoryModal();
 
-                // 약간의 딜레이 후 상세 페이지 새로고침
+                // 모달의 카테고리 표시 즉시 업데이트
+                const modalCategoryDisplay = document.getElementById(`modal-category-display-${savedProductId}`);
+                if (modalCategoryDisplay) {
+                    modalCategoryDisplay.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="color:#28a745; font-size:20px;">✓</span>
+                            <div>
+                                <div style="font-weight:600; color:#2c3e50;">${selectedCategory.name}</div>
+                                <div style="font-size:12px; color:#888; margin-top:4px;">${selectedCategory.wholeCategoryName}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // 상세 페이지도 새로고침
                 setTimeout(async () => {
                     await showDetail(savedProductId);
                 }, 100);
@@ -3486,6 +4637,14 @@
                     if (settings.text_review_point !== undefined) document.getElementById('text-review-point').value = settings.text_review_point;
                     if (settings.photo_review_point !== undefined) document.getElementById('photo-review-point').value = settings.photo_review_point;
 
+                    // 네이버 검색광고 API 설정
+                    const customerIdInput = document.getElementById('keyword-customer-id');
+                    const accessLicenseInput = document.getElementById('keyword-access-license');
+                    const secretKeyInput = document.getElementById('keyword-secret-key');
+                    if (customerIdInput && settings.keyword_customer_id) customerIdInput.value = settings.keyword_customer_id;
+                    if (accessLicenseInput && settings.keyword_access_license) accessLicenseInput.value = settings.keyword_access_license;
+                    if (secretKeyInput && settings.keyword_secret_key) secretKeyInput.value = settings.keyword_secret_key;
+
                     // 배송비/반품비 설정
                     if (settings.brand_name) document.getElementById('brand-name').value = settings.brand_name;
                     if (settings.manufacturer_name) document.getElementById('manufacturer-name').value = settings.manufacturer_name;
@@ -3504,75 +4663,86 @@
         async function saveSettings() {
             const settings = {
                 // API 설정
-                api_enabled: document.getElementById('api-enabled').value,
-                seller_id: document.getElementById('seller-id').value,
-                store_url: document.getElementById('store-url').value,
-                store_name: document.getElementById('store-name').value,
-                origin_code: document.getElementById('origin-code').value,
-                return_code: document.getElementById('return-code').value,
+                api_enabled: document.getElementById('api-enabled')?.value || '',
+                seller_id: document.getElementById('seller-id')?.value || '',
+                store_url: document.getElementById('store-url')?.value || '',
+                store_name: document.getElementById('store-name')?.value || '',
+                origin_code: document.getElementById('origin-code')?.value || '',
+                return_code: document.getElementById('return-code')?.value || '',
 
                 // 포인트 설정
-                purchase_point: parseInt(document.getElementById('purchase-point').value) || 0,
-                text_review_point: parseInt(document.getElementById('text-review-point').value) || 0,
-                photo_review_point: parseInt(document.getElementById('photo-review-point').value) || 0,
-                text_review_point_month: parseInt(document.getElementById('text-review-point-month').value) || 0,
-                photo_review_point_month: parseInt(document.getElementById('photo-review-point-month').value) || 0,
-                daily_review_point: parseInt(document.getElementById('daily-review-point').value) || 0,
+                purchase_point: parseInt(document.getElementById('purchase-point')?.value) || 0,
+                text_review_point: parseInt(document.getElementById('text-review-point')?.value) || 0,
+                photo_review_point: parseInt(document.getElementById('photo-review-point')?.value) || 0,
+                text_review_point_month: parseInt(document.getElementById('text-review-point-month')?.value) || 0,
+                photo_review_point_month: parseInt(document.getElementById('photo-review-point-month')?.value) || 0,
+                daily_review_point: parseInt(document.getElementById('daily-review-point')?.value) || 0,
 
                 // A/S 설정
-                as_phone: document.getElementById('as-phone').value,
-                as_guide: document.getElementById('as-guide').value,
+                as_phone: document.getElementById('as-phone')?.value || '',
+                as_guide: document.getElementById('as-guide')?.value || '',
+
+                // 네이버 검색광고 API 설정
+                keyword_customer_id: document.getElementById('keyword-customer-id')?.value || '',
+                keyword_access_license: document.getElementById('keyword-access-license')?.value || '',
+                keyword_secret_key: document.getElementById('keyword-secret-key')?.value || '',
 
                 // 배송 설정
-                extra_shipping_enabled: document.getElementById('extra-shipping-enabled').value,
-                shipping_management: document.getElementById('shipping-management').value,
-                extra_shipping_fee: parseInt(document.getElementById('extra-shipping-fee').value) || 0,
+                extra_shipping_enabled: document.getElementById('extra-shipping-enabled')?.value || '',
+                shipping_management: document.getElementById('shipping-management')?.value || '',
+                extra_shipping_fee: parseInt(document.getElementById('extra-shipping-fee')?.value) || 0,
 
                 // 상품등록 설정
-                origin_manufacturer_toggle: document.getElementById('origin-manufacturer-toggle').checked,
-                login_toggle: document.getElementById('login-toggle').checked,
-                coupang_auto_fee: document.getElementById('coupang-auto-fee').value,
-                manual_market_margin: document.getElementById('manual-market-margin').value,
+                origin_manufacturer_toggle: document.getElementById('origin-manufacturer-toggle')?.checked || false,
+                login_toggle: document.getElementById('login-toggle')?.checked || false,
+                coupang_auto_fee: document.getElementById('coupang-auto-fee')?.value || '',
+                manual_market_margin: document.getElementById('manual-market-margin')?.value || '',
 
                 // 브랜드/제조사
-                brand_name: document.getElementById('brand-name').value,
-                manufacturer_name: document.getElementById('manufacturer-name').value,
-                shipping_days: parseInt(document.getElementById('shipping-days').value) || 0,
-                purchase_limit: parseInt(document.getElementById('purchase-limit').value) || 0,
+                brand_name: document.getElementById('brand-name')?.value || '',
+                manufacturer_name: document.getElementById('manufacturer-name')?.value || '',
+                shipping_days: parseInt(document.getElementById('shipping-days')?.value) || 0,
+                purchase_limit: parseInt(document.getElementById('purchase-limit')?.value) || 0,
 
                 // 배송비/반품비/가격
-                shipping_fee_custom: parseInt(document.getElementById('shipping-fee-custom').value) || 0,
-                return_fee_custom: parseInt(document.getElementById('return-fee-custom').value) || 0,
-                price_multiply_custom: parseFloat(document.getElementById('price-multiply-custom').value) || 0,
-                price_add_custom: parseInt(document.getElementById('price-add-custom').value) || 0,
+                shipping_fee_custom: parseInt(document.getElementById('shipping-fee-custom')?.value) || 0,
+                return_fee_custom: parseInt(document.getElementById('return-fee-custom')?.value) || 0,
+                price_multiply_custom: parseFloat(document.getElementById('price-multiply-custom')?.value) || 0,
+                price_add_custom: parseInt(document.getElementById('price-add-custom')?.value) || 0,
 
                 // 마켓별 설정
-                naver_percent: parseInt(document.getElementById('naver-percent').value) || 0,
-                st_11_percent: parseInt(document.getElementById('11st-percent').value) || 0,
-                esm_percent: parseInt(document.getElementById('esm-percent').value) || 0,
-                lotte_percent: parseInt(document.getElementById('lotte-percent').value) || 0,
-                interpark_percent: parseInt(document.getElementById('interpark-percent').value) || 0,
-                godomall_percent: parseInt(document.getElementById('godomall-percent').value) || 0,
-                payment_unit: parseInt(document.getElementById('payment-unit').value) || 0,
+                naver_percent: parseInt(document.getElementById('naver-percent')?.value) || 0,
+                st_11_percent: parseInt(document.getElementById('11st-percent')?.value) || 0,
+                esm_percent: parseInt(document.getElementById('esm-percent')?.value) || 0,
+                lotte_percent: parseInt(document.getElementById('lotte-percent')?.value) || 0,
+                interpark_percent: parseInt(document.getElementById('interpark-percent')?.value) || 0,
+                godomall_percent: parseInt(document.getElementById('godomall-percent')?.value) || 0,
+                payment_unit: parseInt(document.getElementById('payment-unit')?.value) || 0,
 
                 // 이미지 URL
-                top_image_url: document.getElementById('top-image-url').value,
-                bottom_image_url: document.getElementById('bottom-image-url').value,
-                top_extra_1: document.getElementById('top-extra-1').value,
-                top_extra_2: document.getElementById('top-extra-2').value,
-                bottom_extra_1: document.getElementById('bottom-extra-1').value,
-                bottom_extra_2: document.getElementById('bottom-extra-2').value,
+                top_image_url: document.getElementById('top-image-url')?.value || '',
+                bottom_image_url: document.getElementById('bottom-image-url')?.value || '',
+                top_extra_1: document.getElementById('top-extra-1')?.value || '',
+                top_extra_2: document.getElementById('top-extra-2')?.value || '',
+                bottom_extra_1: document.getElementById('bottom-extra-1')?.value || '',
+                bottom_extra_2: document.getElementById('bottom-extra-2')?.value || '',
 
                 // 기타 설정
-                fixed_rate_toggle: document.getElementById('fixed-rate-toggle').checked,
-                fixed_rate: parseInt(document.getElementById('fixed-rate').value) || 0,
-                currency_unit: document.getElementById('currency-unit').value,
-                amazon_origin: document.getElementById('amazon-origin').value,
-                coupang_image_setting: document.getElementById('coupang-image-setting').value,
-                option_image_setting: document.getElementById('option-image-setting').value
+                fixed_rate_toggle: document.getElementById('fixed-rate-toggle')?.checked || false,
+                fixed_rate: parseInt(document.getElementById('fixed-rate')?.value) || 0,
+                currency_unit: document.getElementById('currency-unit')?.value || '',
+                amazon_origin: document.getElementById('amazon-origin')?.value || '',
+                coupang_image_setting: document.getElementById('coupang-image-setting')?.value || '',
+                option_image_setting: document.getElementById('option-image-setting')?.value || ''
             };
 
             try {
+                console.log('💾 환경설정 저장 중...', {
+                    keyword_customer_id: settings.keyword_customer_id ? '설정됨' : '미설정',
+                    keyword_access_license: settings.keyword_access_license ? '설정됨' : '미설정',
+                    keyword_secret_key: settings.keyword_secret_key ? '설정됨' : '미설정'
+                });
+
                 const res = await fetch('/api/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -3581,9 +4751,17 @@
 
                 if (!res.ok) throw new Error('설정 저장 실패');
 
-                showToast('환경설정이 저장되었습니다');
+                const result = await res.json();
+                console.log('✅ 환경설정 저장 완료:', result);
+
+                // 키워드 API 설정 여부에 따라 다른 메시지 표시
+                if (settings.keyword_customer_id && settings.keyword_access_license && settings.keyword_secret_key) {
+                    showToast('✅ 환경설정이 저장되었습니다 (검색광고 API 포함)');
+                } else {
+                    showToast('✅ 환경설정이 저장되었습니다');
+                }
             } catch (error) {
-                console.error('설정 저장 오류:', error);
+                console.error('❌ 설정 저장 오류:', error);
                 showToast('설정 저장에 실패했습니다', 'error');
             }
         }
@@ -3797,13 +4975,16 @@
             const multiplyButtons = document.querySelectorAll('#price-multiply-list .price-multiply-btn');
             const addButtons = document.querySelectorAll('#price-add-list .price-add-btn');
 
-            // 배송비 옵션
+            // 배송비 옵션 (오름차순 정렬)
             const shippingContainer = document.getElementById(`shipping-fee-options-${productId}`);
             if (shippingContainer && shippingButtons.length > 0) {
+                const sortedShipping = Array.from(shippingButtons).sort((a, b) =>
+                    parseFloat(a.dataset.value) - parseFloat(b.dataset.value)
+                );
                 shippingContainer.innerHTML = `
                     <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">배송비 선택</div>
                     <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                        ${Array.from(shippingButtons).map(btn => {
+                        ${sortedShipping.map(btn => {
                             const value = btn.dataset.value;
                             return `<button class="fee-option-btn" onclick="selectShippingFee('${productId}', ${value})">${Number(value).toLocaleString()}원</button>`;
                         }).join('')}
@@ -3811,29 +4992,38 @@
                 `;
             }
 
-            // 반품비 옵션
+            // 반품비 옵션 (오름차순 정렬)
             const returnContainer = document.getElementById(`return-fee-options-${productId}`);
             if (returnContainer && returnButtons.length > 0) {
-                returnContainer.innerHTML = Array.from(returnButtons).map(btn => {
+                const sortedReturn = Array.from(returnButtons).sort((a, b) =>
+                    parseFloat(a.dataset.value) - parseFloat(b.dataset.value)
+                );
+                returnContainer.innerHTML = sortedReturn.map(btn => {
                     const value = btn.dataset.value;
                     return `<button class="fee-option-btn" onclick="selectReturnFee('${productId}', ${value})">${Number(value).toLocaleString()}원</button>`;
                 }).join('');
             }
 
-            // 가격 배수 옵션
+            // 가격 배수 옵션 (오름차순 정렬)
             const multiplyContainer = document.getElementById(`price-multiply-options-${productId}`);
             if (multiplyContainer && multiplyButtons.length > 0) {
-                multiplyContainer.innerHTML = Array.from(multiplyButtons).map(btn => {
+                const sortedMultiply = Array.from(multiplyButtons).sort((a, b) =>
+                    parseFloat(a.dataset.value) - parseFloat(b.dataset.value)
+                );
+                multiplyContainer.innerHTML = sortedMultiply.map(btn => {
                     const value = btn.dataset.value;
                     const resultPrice = Math.round(basePrice * parseFloat(value));
                     return `<button class="fee-option-btn" onclick="applyPriceMultiplier(${basePrice}, ${value}, '${productId}')">${value}배 (₩${resultPrice.toLocaleString()})</button>`;
                 }).join('');
             }
 
-            // 가격 추가 옵션
+            // 가격 추가 옵션 (오름차순 정렬)
             const addContainer = document.getElementById(`price-add-options-${productId}`);
             if (addContainer && addButtons.length > 0) {
-                addContainer.innerHTML = Array.from(addButtons).map(btn => {
+                const sortedAdd = Array.from(addButtons).sort((a, b) =>
+                    parseFloat(a.dataset.value) - parseFloat(b.dataset.value)
+                );
+                addContainer.innerHTML = sortedAdd.map(btn => {
                     const value = btn.dataset.value;
                     const resultPrice = basePrice + parseInt(value);
                     return `<button class="fee-option-btn" onclick="applyPriceAdd(${basePrice}, ${value}, '${productId}')">+${Number(value).toLocaleString()}원 (₩${resultPrice.toLocaleString()})</button>`;
@@ -3885,40 +5075,233 @@
             }
         }
 
-        // 가격 배수 적용
-        async function applyPriceMultiplier(basePrice, multiplier, productId) {
-            const sellingPrice = Math.round(basePrice * multiplier);
+        // ==================== 키워드 관련 함수들 ====================
+
+        // AI 키워드 생성
+        async function generateKeywords(productId, source) {
+            const button = document.getElementById(`generate-keywords-${source}-${productId}`);
+            const originalText = button.innerHTML;
 
             try {
-                const res = await fetch(`/api/products/extracted/${productId}/selling-price`, {
-                    method: 'PUT',
+                button.disabled = true;
+                button.innerHTML = '⏳ 키워드 생성 중...';
+
+                console.log('🔍 키워드 생성 시작:', { productId, source });
+
+                // 상품 정보 가져오기
+                const res = await fetch(`/api/products/extracted/${productId}`);
+                if (!res.ok) throw new Error('상품 정보 로드 실패');
+
+                const product = await res.json();
+                // 한국어 제목 우선 사용, 없으면 원본 제목 사용
+                const productTitle = product.title_kr || product.title;
+                console.log('📦 상품 정보:', { title: productTitle, title_kr: product.title_kr, category: product.naver_category_name });
+
+                // 네이버 키워드 API 호출
+                console.log('🌐 네이버 API 호출 중...');
+                const keywordsRes = await fetch('/api/keywords/generate', {
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        selling_price: sellingPrice,
-                        price_multiplier: multiplier
+                        productTitle: productTitle,
+                        categoryName: product.naver_category_name
                     })
                 });
 
-                if (!res.ok) throw new Error('판매가 설정 실패');
+                if (!keywordsRes.ok) {
+                    const errorData = await keywordsRes.json();
+                    console.error('❌ API 오류:', errorData);
+                    throw new Error(errorData.error || '키워드 생성 실패');
+                }
 
-                document.getElementById(`selling-price-display-${productId}`).textContent = `₩${sellingPrice.toLocaleString()}원`;
+                const data = await keywordsRes.json();
+                const keywords = data.keywords || [];
+                console.log('✅ 키워드 생성 완료:', keywords);
 
-                // 선택된 버튼 활성화
-                document.querySelectorAll(`#price-multiply-options-${productId} .fee-option-btn`).forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                event.target.classList.add('active');
+                // 생성된 키워드를 클릭 가능한 버튼으로 표시
+                displayGeneratedKeywords(productId, source, keywords);
 
-                showToast(`판매가가 ${sellingPrice.toLocaleString()}원으로 설정되었습니다 (${multiplier}배)`);
+                if (data.warning) {
+                    showToast(`⚠️ ${keywords.length}개의 키워드 생성 (${data.warning})`);
+                } else {
+                    showToast(`✅ ${keywords.length}개의 키워드가 생성되었습니다`);
+                }
             } catch (error) {
-                console.error('판매가 설정 오류:', error);
-                showToast('판매가 설정에 실패했습니다', 'error');
+                console.error('❌ 키워드 생성 오류:', error);
+                showToast(error.message || '키워드 생성에 실패했습니다. 환경설정에서 API 정보를 확인해주세요.', 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalText;
             }
         }
 
-        // 가격 추가 적용
-        async function applyPriceAdd(basePrice, addAmount, productId) {
-            const sellingPrice = basePrice + parseInt(addAmount);
+        // 생성된 키워드를 클릭 가능한 버튼으로 표시
+        function displayGeneratedKeywords(productId, source, keywords) {
+            const container = document.getElementById(`generated-keywords-${source}-${productId}`);
+            const buttonsContainer = document.getElementById(`generated-keywords-buttons-${source}-${productId}`);
+
+            if (!container || !buttonsContainer) return;
+
+            if (keywords.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            // 버튼 생성
+            buttonsContainer.innerHTML = keywords.map(keyword => `
+                <button onclick="addKeywordToInput('${productId}', '${source}', '${keyword.replace(/'/g, "\\'")}')"
+                        style="padding:8px 14px; background:white; border:1px solid #667eea; border-radius:20px; font-size:13px; color:#667eea; cursor:pointer; transition:all 0.2s;"
+                        onmouseover="this.style.background='#667eea'; this.style.color='white';"
+                        onmouseout="this.style.background='white'; this.style.color='#667eea';">
+                    ${keyword}
+                </button>
+            `).join('');
+
+            container.style.display = 'block';
+        }
+
+        // 키워드를 입력창에 추가
+        function addKeywordToInput(productId, source, keyword) {
+            const textarea = document.getElementById(`keywords-input-${source}-${productId}`);
+            if (!textarea) return;
+
+            const currentKeywords = textarea.value.trim();
+            const keywordsArray = currentKeywords ? currentKeywords.split(',').map(k => k.trim()) : [];
+
+            // 이미 존재하는 키워드인지 확인
+            if (keywordsArray.includes(keyword)) {
+                showToast('이미 추가된 키워드입니다', 'info');
+                return;
+            }
+
+            // 키워드 추가
+            keywordsArray.push(keyword);
+            textarea.value = keywordsArray.join(', ');
+
+            showToast(`"${keyword}" 키워드가 추가되었습니다`, 'success');
+        }
+
+        // 키워드 태그 표시
+        function displayKeywordTags(productId, source, keywordsString) {
+            const tagsContainer = document.getElementById(`keywords-tags-${source}-${productId}`);
+            if (!tagsContainer) return;
+
+            if (!keywordsString || keywordsString.trim() === '') {
+                tagsContainer.innerHTML = '<div style="color:#888; font-size:13px; padding:4px;">저장된 키워드가 없습니다</div>';
+                return;
+            }
+
+            const keywords = keywordsString.split(',').map(k => k.trim()).filter(k => k);
+
+            tagsContainer.innerHTML = keywords.map(keyword => `
+                <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:white; border:1px solid #667eea; border-radius:20px; font-size:13px; color:#667eea;">
+                    <span>${keyword}</span>
+                    <button onclick="removeKeywordTag('${productId}', '${source}', '${keyword.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#667eea; cursor:pointer; padding:0; font-size:16px; line-height:1; font-weight:bold;" title="제거">×</button>
+                </div>
+            `).join('');
+        }
+
+        // 키워드 태그 제거
+        function removeKeywordTag(productId, source, keyword) {
+            const textarea = document.getElementById(`keywords-input-${source}-${productId}`);
+            if (!textarea) return;
+
+            const keywords = textarea.value.split(',').map(k => k.trim()).filter(k => k);
+            const updatedKeywords = keywords.filter(k => k !== keyword);
+            textarea.value = updatedKeywords.join(', ');
+
+            // 태그 다시 표시
+            displayKeywordTags(productId, source, textarea.value);
+
+            showToast('키워드가 제거되었습니다. 저장 버튼을 눌러 변경사항을 저장하세요.');
+        }
+
+        // 키워드 저장 (태그 표시 포함)
+        async function saveKeywordsTags(productId, source) {
+            const textarea = document.getElementById(`keywords-input-${source}-${productId}`);
+            if (!textarea) return;
+
+            const keywords = textarea.value;
+
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}/keywords`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keywords })
+                });
+
+                if (!res.ok) throw new Error('키워드 저장 실패');
+
+                // 태그 표시
+                displayKeywordTags(productId, source, keywords);
+
+                showToast('키워드가 저장되었습니다');
+            } catch (error) {
+                console.error('키워드 저장 오류:', error);
+                showToast('키워드 저장에 실패했습니다', 'error');
+            }
+        }
+
+        // 가격 배수 적용
+        function updateDetailOptionPrices(productId, multiplier, addAmount) {
+            if (!currentDetailProduct || !currentDetailProduct.options) return;
+
+            const container = document.getElementById(`options-container-${productId}`);
+            if (!container) return;
+
+            const rate = currentDetailProduct.exchange_rate || currentExchangeRate;
+
+            const optionsHtml = currentDetailProduct.options.map((opt, optIdx) => {
+                const optionName = opt.name || '옵션';
+                return `
+                <div class="option-group" data-opt-idx="${optIdx}">
+                    <div class="option-name">${optionName}</div>
+                    <div class="option-values">
+                        ${opt.values.map((v, valIdx) => {
+                            const valueName = v.name || v;
+                            const translatedValueName = v.name_kr || valueName;
+                            const quantity = v.quantity ?? null;
+                            const price = v.price || null;
+                            const hasStock = quantity === null || quantity > 0;
+
+                            const priceNum = price ? parseFloat(price) : 0;
+                            const optBaseKrw = Math.round(priceNum * rate);
+                            const optCalculatedPrice = Math.round(optBaseKrw * multiplier) + addAmount;
+
+                            return `
+                            <span class="option-value ${!hasStock ? 'out-of-stock' : ''}" title="${quantity !== null ? '재고: ' + quantity + '개' : ''}" data-opt-idx="${optIdx}" data-val-idx="${valIdx}">
+                                <div class="option-actions">
+                                    <button class="option-action-btn edit" onclick="event.stopPropagation(); openEditOption(${optIdx}, ${valIdx}, '${valueName.replace(/'/g, "\\'")}', '${translatedValueName.replace(/'/g, "\\'")}', ${optBaseKrw || 'null'}, ${price || 'null'}, '${productId}')" title="수정">✏️</button>
+                                    <button class="option-action-btn delete" onclick="event.stopPropagation(); deleteOption(${optIdx}, ${valIdx}, '${productId}')" title="삭제">✕</button>
+                                </div>
+                                ${v.image ? `<img src="${v.image}" onerror="this.style.display='none'">` : ''}
+                                <span class="option-text">
+                                    <span class="opt-cn">${valueName}</span>
+                                    <span class="opt-kr">${translatedValueName}</span>
+                                    <span class="opt-price">${price ? `₩${optCalculatedPrice.toLocaleString()} <small style="color:#888;">(¥${price} × ${multiplier} + ${addAmount.toLocaleString()})</small>` : '가격 미설정'}</span>
+                                    ${quantity !== null ? `<span class="opt-stock ${hasStock ? 'in-stock' : 'no-stock'}">${hasStock ? '재고: ' + quantity : '품절'}</span>` : ''}
+                                </span>
+                            </span>
+                        `}).join('')}
+                    </div>
+                </div>
+            `}).join('');
+
+            container.innerHTML = optionsHtml;
+        }
+
+        async function applyPriceMultiplier(basePrice, multiplier, productId) {
+            // 현재 선택된 추가 금액 가져오기
+            const addAmount = parseInt(document.getElementById(`selected-add-amount-${productId}`).value) || 0;
+
+            // 최종 판매가 = (기본가 × 배수) + 추가금액
+            const calculatedPrice = Math.round(basePrice * multiplier) + addAmount;
+
+            // 결제단위 적용
+            const sellingPrice = applyPaymentUnit(calculatedPrice);
+
+            // 선택된 배수 저장
+            document.getElementById(`selected-multiplier-${productId}`).value = multiplier;
 
             try {
                 const res = await fetch(`/api/products/extracted/${productId}/selling-price`, {
@@ -3926,6 +5309,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         selling_price: sellingPrice,
+                        price_multiplier: multiplier,
                         price_add_amount: addAmount
                     })
                 });
@@ -3934,16 +5318,211 @@
 
                 document.getElementById(`selling-price-display-${productId}`).textContent = `₩${sellingPrice.toLocaleString()}원`;
 
+                // 계산 상세 표시
+                const multipliedPrice = Math.round(basePrice * multiplier);
+                let detailText = `${basePrice.toLocaleString()}원 × ${multiplier}배 = ${multipliedPrice.toLocaleString()}원`;
+                if (addAmount > 0) {
+                    detailText += ` + ${addAmount.toLocaleString()}원 = ${calculatedPrice.toLocaleString()}원`;
+                }
+                if (calculatedPrice !== sellingPrice) {
+                    detailText += ` → 결제단위 적용: ${sellingPrice.toLocaleString()}원`;
+                }
+                document.getElementById(`price-calculation-detail-${productId}`).textContent = detailText;
+
+                // 옵션 가격 업데이트
+                updateDetailOptionPrices(productId, multiplier, addAmount);
+
+                // 선택된 버튼 활성화
+                document.querySelectorAll(`#price-multiply-options-${productId} .fee-option-btn`).forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+
+                showToast(`판매가가 ${sellingPrice.toLocaleString()}원으로 설정되었습니다`);
+            } catch (error) {
+                console.error('판매가 설정 오류:', error);
+                showToast('판매가 설정에 실패했습니다', 'error');
+            }
+        }
+
+        // 가격 추가 적용
+        async function applyPriceAdd(basePrice, addAmount, productId) {
+            // 현재 선택된 배수 가져오기
+            const multiplier = parseFloat(document.getElementById(`selected-multiplier-${productId}`).value) || 1;
+
+            // 최종 판매가 = (기본가 × 배수) + 추가금액
+            const calculatedPrice = Math.round(basePrice * multiplier) + parseInt(addAmount);
+
+            // 결제단위 적용
+            const sellingPrice = applyPaymentUnit(calculatedPrice);
+
+            // 선택된 추가 금액 저장
+            document.getElementById(`selected-add-amount-${productId}`).value = addAmount;
+
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}/selling-price`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        selling_price: sellingPrice,
+                        price_multiplier: multiplier,
+                        price_add_amount: addAmount
+                    })
+                });
+
+                if (!res.ok) throw new Error('판매가 설정 실패');
+
+                document.getElementById(`selling-price-display-${productId}`).textContent = `₩${sellingPrice.toLocaleString()}원`;
+
+                // 계산 상세 표시
+                const multipliedPrice = Math.round(basePrice * multiplier);
+                let detailText = `${basePrice.toLocaleString()}원 × ${multiplier}배 = ${multipliedPrice.toLocaleString()}원`;
+                if (parseInt(addAmount) > 0) {
+                    detailText += ` + ${parseInt(addAmount).toLocaleString()}원 = ${calculatedPrice.toLocaleString()}원`;
+                }
+                if (calculatedPrice !== sellingPrice) {
+                    detailText += ` → 결제단위 적용: ${sellingPrice.toLocaleString()}원`;
+                }
+                document.getElementById(`price-calculation-detail-${productId}`).textContent = detailText;
+
+                // 옵션 가격 업데이트
+                updateDetailOptionPrices(productId, multiplier, parseInt(addAmount));
+
                 // 선택된 버튼 활성화
                 document.querySelectorAll(`#price-add-options-${productId} .fee-option-btn`).forEach(btn => {
                     btn.classList.remove('active');
                 });
                 event.target.classList.add('active');
 
-                showToast(`판매가가 ${sellingPrice.toLocaleString()}원으로 설정되었습니다 (+${addAmount.toLocaleString()}원)`);
+                showToast(`판매가가 ${sellingPrice.toLocaleString()}원으로 설정되었습니다`);
             } catch (error) {
                 console.error('판매가 설정 오류:', error);
                 showToast('판매가 설정에 실패했습니다', 'error');
+            }
+        }
+
+        // 직접 입력한 가격 적용
+        async function applyManualPrice(productId, basePrice) {
+            const manualPriceInput = document.getElementById(`manual-price-input-${productId}`);
+            const manualPrice = parseInt(manualPriceInput.value);
+
+            if (!manualPrice || manualPrice <= 0) {
+                showToast('유효한 가격을 입력하세요', 'error');
+                return;
+            }
+
+            // 결제단위 적용
+            const roundedPrice = applyPaymentUnit(manualPrice);
+            const priceDiff = roundedPrice - basePrice;
+
+            try {
+                const res = await fetch(`/api/products/extracted/${productId}/selling-price`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        selling_price: roundedPrice,
+                        price_multiplier: 1,
+                        price_add_amount: priceDiff
+                    })
+                });
+
+                if (!res.ok) throw new Error('판매가 설정 실패');
+
+                document.getElementById(`selling-price-display-${productId}`).textContent = `₩${roundedPrice.toLocaleString()}원`;
+
+                // 계산 상세 표시
+                if (roundedPrice !== manualPrice) {
+                    document.getElementById(`price-calculation-detail-${productId}`).textContent =
+                        `직접 입력: ${manualPrice.toLocaleString()}원 → 결제단위 적용: ${roundedPrice.toLocaleString()}원`;
+                } else {
+                    document.getElementById(`price-calculation-detail-${productId}`).textContent =
+                        `직접 입력: ${roundedPrice.toLocaleString()}원`;
+                }
+
+                // 옵션 가격도 차액만큼 업데이트
+                updateDetailOptionPrices(productId, 1, priceDiff);
+
+                // 배수와 추가금액 업데이트
+                document.getElementById(`selected-multiplier-${productId}`).value = 1;
+                document.getElementById(`selected-add-amount-${productId}`).value = priceDiff;
+
+                // 모든 버튼 비활성화
+                document.querySelectorAll(`#price-multiply-options-${productId} .fee-option-btn`).forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelectorAll(`#price-add-options-${productId} .fee-option-btn`).forEach(btn => {
+                    btn.classList.remove('active');
+                });
+
+                // 입력 필드 초기화
+                manualPriceInput.value = '';
+
+                showToast(`판매가가 ${roundedPrice.toLocaleString()}원으로 설정되었습니다`);
+            } catch (error) {
+                console.error('판매가 설정 오류:', error);
+                showToast('판매가 설정에 실패했습니다', 'error');
+            }
+        }
+
+        // 상세페이지 가격 저장
+        async function saveDetailPrice(productId, basePrice) {
+            try {
+                const multiplier = parseFloat(document.getElementById(`selected-multiplier-${productId}`).value) || 1;
+                const addAmount = parseInt(document.getElementById(`selected-add-amount-${productId}`).value) || 0;
+                const calculatedPrice = Math.round(basePrice * multiplier) + addAmount;
+                const sellingPrice = applyPaymentUnit(calculatedPrice);
+
+                await fetch(`/api/products/extracted/${productId}/selling-price`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        selling_price: sellingPrice,
+                        price_multiplier: multiplier,
+                        price_add_amount: addAmount
+                    })
+                });
+
+                showToast(`가격이 저장되었습니다: ₩${sellingPrice.toLocaleString()}원`);
+            } catch (error) {
+                console.error('가격 저장 실패:', error);
+                showToast('가격 저장에 실패했습니다', 'error');
+            }
+        }
+
+        // 상세페이지 가격 초기화
+        async function resetDetailPrice(productId, basePrice) {
+            try {
+                await fetch(`/api/products/extracted/${productId}/selling-price`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        selling_price: basePrice,
+                        price_multiplier: 1,
+                        price_add_amount: 0
+                    })
+                });
+
+                // UI 업데이트
+                document.getElementById(`selected-multiplier-${productId}`).value = 1;
+                document.getElementById(`selected-add-amount-${productId}`).value = 0;
+                document.getElementById(`selling-price-display-${productId}`).textContent = `₩${basePrice.toLocaleString()}원`;
+                document.getElementById(`price-calculation-detail-${productId}`).textContent = '원화 환산 가격';
+
+                // 옵션 가격도 초기화
+                updateDetailOptionPrices(productId, 1, 0);
+
+                // 버튼 비활성화
+                document.querySelectorAll(`#price-multiply-options-${productId} .fee-option-btn`).forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelectorAll(`#price-add-options-${productId} .fee-option-btn`).forEach(btn => {
+                    btn.classList.remove('active');
+                });
+
+                showToast('가격이 원래대로 초기화되었습니다');
+            } catch (error) {
+                console.error('초기화 실패:', error);
+                showToast('초기화 실패', 'error');
             }
         }
 
@@ -3983,6 +5562,36 @@
             }
 
             saveShippingFee(productId);
+        }
+
+        // 자동 번역 함수 (중국어 -> 한국어)
+        function autoTranslateChineseContent() {
+            // 모달 내의 모든 텍스트 요소 가져오기
+            const modalBody = document.getElementById('modal-body');
+            if (!modalBody) return;
+
+            // Google Translate를 사용한 자동 번역
+            // 페이지 언어를 중국어로 설정하고 번역 요청
+            const elements = modalBody.querySelectorAll('.title-cn, .option-name, .option-value');
+
+            elements.forEach(el => {
+                if (el.textContent && /[\u4e00-\u9fa5]/.test(el.textContent)) {
+                    // 중국어가 포함된 경우 translate 속성 추가
+                    el.setAttribute('translate', 'yes');
+                    el.setAttribute('lang', 'zh-CN');
+                }
+            });
+
+            // Chrome 자동 번역 트리거
+            if (document.documentElement.lang !== 'zh-CN') {
+                const originalLang = document.documentElement.lang;
+                document.documentElement.lang = 'zh-CN';
+
+                // 번역이 완료될 시간을 주고 원래 언어로 복구
+                setTimeout(() => {
+                    document.documentElement.lang = originalLang || 'ko';
+                }, 100);
+            }
         }
     </script>
 </body>
