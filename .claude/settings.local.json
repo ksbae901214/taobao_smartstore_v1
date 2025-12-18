@@ -21,7 +21,8 @@
       "Bash(docker cp:*)",
       "Bash(docker-compose build:*)",
       "Bash(npm --prefix ./backend run build)",
-      "Bash(docker system prune:*)"
+      "Bash(docker system prune:*)",
+      "Bash(ls:*)"
     ]
   }
 }

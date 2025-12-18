@@ -1038,16 +1038,56 @@ async function getNaverAccessToken(): Promise<string> {
     }
 }
 
+// 네이버 배송지 조회 API
+app.get('/api/naver/addresses', async (req, res) => {
+    console.log('📦 네이버 배송지 조회');
+
+    try {
+        const accessToken = await getNaverAccessToken();
+
+        const response = await fetch('https://api.commerce.naver.com/external/v1/vendor/addresses', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`배송지 조회 실패: ${JSON.stringify(errorData)}`);
+        }
+
+        const data: any = await response.json();
+        console.log(`✅ 배송지 ${data.length || 0}개 조회 완료`);
+
+        res.json({
+            addresses: Array.isArray(data) ? data.map((addr: any) => ({
+                id: addr.addressId || addr.id,
+                name: addr.addressName || addr.name,
+                baseAddress: addr.baseAddress,
+                detailAddress: addr.detailAddress,
+                zipCode: addr.zipCode,
+                tel1: addr.tel1,
+                tel2: addr.tel2
+            })) : []
+        });
+    } catch (error: any) {
+        console.error('❌ 배송지 조회 오류:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // 네이버 API 인증 상태 확인 API
 app.get('/api/naver/auth/status', async (req, res) => {
     console.log('🔑 네이버 인증 상태 확인');
-    
+
     // 설정 여부
     const hasCredentials = !!(NAVER_CLIENT_ID && NAVER_CLIENT_SECRET);
-    
+
     // 토큰 유효성 확인
     const tokenValid = naverTokenCache && naverTokenCache.expires_at > Date.now();
-    
+
     res.json({
         configured: hasCredentials,
         authenticated: tokenValid,
