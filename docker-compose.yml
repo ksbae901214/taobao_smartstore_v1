@@ -16,6 +16,8 @@ services:
       - NAVER_CLIENT_ID=3BYV4foYrabQwiM7GZtLfr
       # $가 포함된 값은 $$로 이스케이프 (docker-compose에서 $를 $$로)
       - NAVER_CLIENT_SECRET=$$2a$$04$$IezTXxCwI/e3RJaQ6Ya7J.
+      # Cloudflare Tunnel 공개 URL
+      - BASE_URL=https://harvest-templates-specialized-sensor.trycloudflare.com
     volumes:
       - ./storage:/app/storage
     depends_on:

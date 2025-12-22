@@ -1252,6 +1252,7 @@
                 <table class="products-table">
                     <thead>
                         <tr>
+                            <th class="resizable" width="50">번호</th>
                             <th class="resizable" width="60">이미지</th>
                             <th class="resizable" width="120">구분(수집)</th>
                             <th class="resizable">상품명(수집)</th>
@@ -1517,18 +1518,6 @@
                         <input type="text" id="store-name" class="setting-input" placeholder="kyunismall" style="margin-top:10px;">
                     </div>
 
-                    <div class="setting-row-grid">
-                        <div>
-                            <label class="setting-label">출고지코드*</label>
-                            <input type="text" id="origin-code" class="setting-input" placeholder="105941290">
-                            <button class="setting-btn-small">판매자주소목록조회</button>
-                        </div>
-                        <div>
-                            <label class="setting-label">반품지코드*</label>
-                            <input type="text" id="return-code" class="setting-input" placeholder="105938518">
-                            <button class="setting-btn-small">판매자주소목록조회</button>
-                        </div>
-                    </div>
 
                     <div class="setting-row-grid-3">
                         <div>
@@ -1666,36 +1655,30 @@
 
                     <!-- 출고지/반품지 설정 -->
                     <div style="margin-top:30px; padding-top:20px; border-top:2px solid #eee;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                            <h3 style="font-size:15px; font-weight:600; color:#2c3e50; margin:0;">📦 배송지 정보</h3>
-                            <button id="fetch-addresses-btn" style="padding:8px 16px; background:#667eea; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600;">
-                                🔍 배송지 조회
-                            </button>
-                        </div>
+                        <h3 style="font-size:15px; font-weight:600; color:#2c3e50; margin-bottom:15px;">📦 배송지 정보</h3>
 
                         <div class="setting-row">
-                            <label class="setting-label">출고지 ID <span style="color:#e74c3c;">*</span></label>
+                            <label class="setting-label">출고지 <span style="color:#e74c3c;">*</span></label>
                             <select id="outbound-location-id" class="setting-select" style="display:none;">
                                 <option value="">선택하세요</option>
                             </select>
-                            <input type="text" id="outbound-location-id-input" class="setting-input" placeholder="네이버 커머스에 등록된 출고지 ID">
-                            <div style="font-size:12px; color:#888; margin-top:5px;">네이버 커머스 센터 > 배송관리 > 출고지 관리에서 확인</div>
+                            <input type="text" id="outbound-location-id-input" class="setting-input" placeholder="네이버에서 자동 조회됩니다" readonly>
                         </div>
 
                         <div class="setting-row">
-                            <label class="setting-label">반품 수거지 ID <span style="color:#e74c3c;">*</span></label>
+                            <label class="setting-label">반품 수거지 <span style="color:#e74c3c;">*</span></label>
                             <select id="return-address-id" class="setting-select" style="display:none;">
                                 <option value="">선택하세요</option>
                             </select>
-                            <input type="text" id="return-address-id-input" class="setting-input" placeholder="반품 상품 수거지 ID">
+                            <input type="text" id="return-address-id-input" class="setting-input" placeholder="네이버에서 자동 조회됩니다" readonly>
                         </div>
 
                         <div class="setting-row">
-                            <label class="setting-label">교환 배송지 ID</label>
+                            <label class="setting-label">교환 배송지</label>
                             <select id="shipping-address-id" class="setting-select" style="display:none;">
                                 <option value="">선택하세요</option>
                             </select>
-                            <input type="text" id="shipping-address-id-input" class="setting-input" placeholder="교환 상품 배송지 ID (선택)">
+                            <input type="text" id="shipping-address-id-input" class="setting-input" placeholder="교환 배송지 (선택)" readonly>
                         </div>
 
                         <div class="setting-row">
@@ -2278,6 +2261,10 @@
         window.onload = async () => {
             await fetchExchangeRate();
             await checkNaverAuthStatus();
+
+            // 네이버 토큰 자동 갱신
+            await refreshNaverAuth();
+
             loadProducts();
             initTableColumnResize();
         };
@@ -2657,14 +2644,16 @@
 
             tbody.innerHTML = productsList.map((p, index) => {
                 const thumbnail = p.thumbnail || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22><rect fill=%22%23f5f5f5%22 width=%22100%%22 height=%22100%%22/></svg>';
-                const title = p.title || '제목 없음';
+                const title = p.title_kr || p.title || '제목 없음';
                 const productId = p.product_id || '';
                 const createdDate = p.created_at ? new Date(p.created_at).toLocaleDateString('ko-KR') : '-';
                 const marketName = p.uploaded_market || '-';
                 const isUploaded = p.upload_status === 'uploaded';
+                const rowNumber = index + 1;
 
                 return `
                     <tr data-product-id="${productId}">
+                        <td style="text-align:center; font-weight:500;">${rowNumber}</td>
                         <td>
                             <img src="${thumbnail}" class="product-thumb" alt="상품이미지"
                                  onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22><rect fill=%22%23f5f5f5%22 width=%22100%%22 height=%22100%%22/></svg>'">
@@ -2688,6 +2677,7 @@
                         </td>
                         <td>
                             <button class="view-detail-btn" onclick="showDetail('${productId}')">상세보기</button>
+                            <button class="view-detail-btn" onclick="registerToNaver('${productId}')" style="background:#03c75a; margin-top:5px;">네이버 등록</button>
                         </td>
                         <td>
                             <span class="upload-status ${isUploaded ? 'uploaded' : 'pending'}">
@@ -4751,12 +4741,10 @@
                 loadSettings();
                 setupNaverCommerceAuthToggle();
 
-                // 배송지 조회 버튼 이벤트 연결
-                const fetchAddressesBtn = document.getElementById('fetch-addresses-btn');
-                if (fetchAddressesBtn && !fetchAddressesBtn.hasAttribute('data-listener')) {
-                    fetchAddressesBtn.addEventListener('click', fetchNaverAddresses);
-                    fetchAddressesBtn.setAttribute('data-listener', 'true');
-                }
+                // 배송지 자동 조회
+                fetchNaverAddresses().catch(err => {
+                    console.log('배송지 자동 조회 실패 (무시):', err.message);
+                });
             }
         }
 
@@ -4837,20 +4825,28 @@
 
         // 배송지 조회 함수
         async function fetchNaverAddresses() {
+            console.log('🔍 배송지 조회 시작');
             const btn = document.getElementById('fetch-addresses-btn');
-            btn.disabled = true;
-            btn.textContent = '🔄 조회 중...';
+
+            // 버튼이 있으면 상태 업데이트
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '🔄 조회 중...';
+            }
 
             try {
+                console.log('📡 API 호출 시작: /api/naver/addresses');
                 const response = await fetch('/api/naver/addresses');
+                console.log('📡 API 응답 받음:', response.status);
                 const data = await response.json();
+                console.log('📦 받은 데이터:', data);
 
                 if (!response.ok) {
                     throw new Error(data.error || '배송지 조회 실패');
                 }
 
                 if (!data.addresses || data.addresses.length === 0) {
-                    showToast('등록된 배송지가 없습니다', 'warning');
+                    console.log('등록된 배송지가 없습니다');
                     return;
                 }
 
@@ -4878,6 +4874,17 @@
                     shippingSelect.appendChild(option.cloneNode(true));
                 });
 
+                // 기존에 저장된 값이 있으면 드롭다운에서 선택
+                if (outboundInput.value) {
+                    outboundSelect.value = outboundInput.value;
+                }
+                if (returnInput.value) {
+                    returnSelect.value = returnInput.value;
+                }
+                if (shippingInput.value) {
+                    shippingSelect.value = shippingInput.value;
+                }
+
                 // 드롭다운 표시, 인풋 숨김
                 outboundSelect.style.display = 'block';
                 returnSelect.style.display = 'block';
@@ -4897,14 +4904,21 @@
                     shippingInput.value = e.target.value;
                 });
 
-                showToast(`${data.addresses.length}개의 배송지를 불러왔습니다`, 'success');
+                console.log(`✅ ${data.addresses.length}개의 배송지 로드 완료`);
+                // 버튼에서 호출된 경우에만 토스트 표시
+                if (btn) {
+                    showToast(`${data.addresses.length}개의 배송지를 불러왔습니다`, 'success');
+                }
 
             } catch (error) {
                 console.error('배송지 조회 오류:', error);
-                showToast(error.message, 'error');
+                // 에러는 조용히 처리 (자동 조회 실패는 사용자에게 방해되지 않도록)
+                throw error;
             } finally {
-                btn.disabled = false;
-                btn.textContent = '🔍 배송지 조회';
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '🔍 배송지 조회';
+                }
             }
         }
 
@@ -5151,6 +5165,38 @@
             } catch (error) {
                 console.error('환율 조회 오류:', error);
                 return 190; // 기본값
+            }
+        }
+
+        // 네이버 스마트스토어 상품 등록
+        async function registerToNaver(productId) {
+            if (!confirm('이 상품을 네이버 스마트스토어에 등록하시겠습니까?')) {
+                return;
+            }
+
+            try {
+                showToast('상품 등록 중...', 'info');
+
+                const response = await fetch('/api/naver/products/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ productId })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '상품 등록 실패');
+                }
+
+                showToast('✅ ' + data.message, 'success');
+                console.log('등록된 상품 번호:', data.productNo);
+
+            } catch (error) {
+                console.error('네이버 상품 등록 오류:', error);
+                showToast('❌ ' + error.message, 'error');
             }
         }
 
