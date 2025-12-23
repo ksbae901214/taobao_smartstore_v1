@@ -23,7 +23,10 @@
       "Bash(npm --prefix ./backend run build)",
       "Bash(docker system prune:*)",
       "Bash(ls:*)",
-      "Bash(brew install:*)"
+      "Bash(brew install:*)",
+      "Bash(npm --prefix /Users/kyusik/taobao-smartstore/backend run build)",
+      "Bash(grep:*)",
+      "Bash(docker-compose:*)"
     ]
   }
 }

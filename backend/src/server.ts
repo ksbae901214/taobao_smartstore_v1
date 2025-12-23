@@ -508,7 +508,10 @@ app.get('/api/products/extracted', async (req, res) => {
                     detail_images_count: product.detail_images?.length || 0,
                     options_count: product.options?.length || 0,
                     status: product.status,
-                    saved_at: product.saved_at
+                    saved_at: product.saved_at,
+                    naver_origin_product_no: product.naver_origin_product_no,
+                    naver_uploaded_at: product.naver_uploaded_at,
+                    naver_product_status: product.naver_product_status || 'ON'
                 });
             }
         }
@@ -911,8 +914,59 @@ app.post('/api/glossary/create', async (req, res) => {
 });
 
 // =====================================================
-// 네이버 스마트스토어 카테고리 API
+// 상세페이지 HTML 생성
 // =====================================================
+
+function buildDetailContent(product: any, imageUrls: string[]): string {
+    let html = '<div style="width:100%;max-width:860px;margin:0 auto;">';
+
+    // 상품 설명
+    if (product.description_kr || product.description) {
+        html += `<div style="padding:20px;font-size:14px;line-height:1.8;">${product.description_kr || product.description}</div>`;
+    }
+
+    // 상세 이미지 (대표 이미지 제외)
+    if (imageUrls.length > 1) {
+        html += '<div style="text-align:center;">';
+        for (let i = 1; i < imageUrls.length; i++) {
+            html += `<img src="${imageUrls[i]}" style="width:100%;max-width:860px;display:block;margin:10px auto;" alt="상품 상세 이미지 ${i}">`;
+        }
+        html += '</div>';
+    }
+
+    // 옵션 정보
+    if (product.options && product.options.length > 0) {
+        html += '<div style="padding:20px;background:#f9f9f9;margin-top:20px;">';
+        html += '<h3 style="font-size:16px;font-weight:bold;margin-bottom:10px;">구매 옵션</h3>';
+        html += '<ul style="list-style:none;padding:0;">';
+        product.options.forEach((opt: any) => {
+            if (opt.values) {
+                opt.values.forEach((val: any) => {
+                    const price = val.price_krw ? `${val.price_krw.toLocaleString()}원` : '';
+                    html += `<li style="padding:8px 0;border-bottom:1px solid #eee;">${val.name_kr || val.name || val} ${price}</li>`;
+                });
+            }
+        });
+        html += '</ul></div>';
+    }
+
+    // 구매 안내
+    html += '<div style="padding:20px;margin-top:20px;background:#fff8dc;border:1px solid #f0e68c;">';
+    html += '<h3 style="font-size:16px;font-weight:bold;margin-bottom:10px;">⚠️ 구매 전 확인사항</h3>';
+    html += '<ul style="line-height:1.8;font-size:13px;">';
+    html += '<li>해외구매대행 상품으로 주문 후 배송까지 2~3주 소요될 수 있습니다.</li>';
+    html += '<li>중국에서 직접 발송되는 상품입니다.</li>';
+    html += '<li>관세 및 통관 지연이 발생할 수 있습니다.</li>';
+    html += '<li>제품 하자가 아닌 단순 변심 반품 시 왕복 배송비가 발생합니다.</li>';
+    html += '</ul></div>';
+
+    html += '</div>';
+    return html;
+}
+
+// =====================================================
+// 네이버 스마트스토어 카테고리 API
+// ====================================================='
 
 const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID || '';
 const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || '';
@@ -1218,25 +1272,44 @@ app.post('/api/naver/products/register', async (req, res) => {
             imageUrls = product.images.map((img: string) => toPublicUrl(img));
         }
 
-        // 이미지를 네이버에 업로드
-        console.log(`📤 ${imageUrls.length}개의 이미지를 네이버에 업로드 중...`);
-        const uploadedImageUrls: string[] = [];
+        // 상세 이미지도 추가
+        if (product.detail_images && product.detail_images.length > 0) {
+            const detailUrls = product.detail_images.map((img: string) =>
+                img.startsWith('http') ? img : toPublicUrl(img)
+            );
+            imageUrls = [...imageUrls, ...detailUrls];
+        }
 
-        for (let i = 0; i < Math.min(imageUrls.length, 10); i++) {
+        // 이미지를 네이버에 업로드
+        console.log(`📤 ${imageUrls.length}개의 이미지를 네이버에 업로드 중... (최대 20개)`);
+        const uploadedImageUrls: string[] = [];
+        const failedImages: {index: number, url: string, error: string}[] = [];
+
+        for (let i = 0; i < Math.min(imageUrls.length, 20); i++) {
             try {
+                console.log(`  [${i + 1}/${Math.min(imageUrls.length, 20)}] 업로드 중: ${imageUrls[i].substring(0, 60)}...`);
                 const uploadedUrl = await uploadImageToNaver(imageUrls[i], accessToken);
                 uploadedImageUrls.push(uploadedUrl);
+                console.log(`  ✅ [${i + 1}] 업로드 성공`);
             } catch (error: any) {
-                console.error(`이미지 ${i + 1} 업로드 실패:`, error.message);
+                const errorMsg = error.message || String(error);
+                failedImages.push({index: i + 1, url: imageUrls[i], error: errorMsg});
+                console.error(`  ❌ [${i + 1}] 업로드 실패: ${errorMsg}`);
                 // 첫 번째 이미지(대표 이미지) 업로드 실패시 전체 실패
                 if (i === 0) {
-                    throw new Error(`대표 이미지 업로드 실패: ${error.message}`);
+                    throw new Error(`대표 이미지 업로드 실패: ${errorMsg}`);
                 }
                 // 선택 이미지는 실패해도 계속 진행
             }
         }
 
-        console.log(`✅ ${uploadedImageUrls.length}개의 이미지 업로드 완료`);
+        console.log(`\n📊 이미지 업로드 결과: ${uploadedImageUrls.length}/${Math.min(imageUrls.length, 20)}개 성공`);
+        if (failedImages.length > 0) {
+            console.warn(`⚠️ 실패한 이미지 ${failedImages.length}개:`);
+            failedImages.forEach(f => {
+                console.warn(`  - [${f.index}] ${f.url.substring(0, 60)}... (오류: ${f.error})`);
+            });
+        }
 
         const representativeImage = uploadedImageUrls.length > 0
             ? { url: uploadedImageUrls[0] }
@@ -1245,19 +1318,79 @@ app.post('/api/naver/products/register', async (req, res) => {
             ? uploadedImageUrls.slice(1).map((img: string) => ({ url: img }))
             : [];
 
-        // 옵션 데이터 변환
-        const optionCombinations = product.options?.length > 0
-            ? product.options.flatMap((opt: any, optIdx: number) =>
-                opt.values.map((val: any, valIdx: number) => ({
-                    id: `${optIdx}-${valIdx}`,
-                    optionName1: `옵션${optIdx + 1}`,
-                    optionValue1: val.name_kr || val.name || val,
-                    stockQuantity: val.quantity || 999,
-                    price: val.price_krw ? Math.round(val.price_krw) : (product.selling_price || Math.round(product.price * (settings.exchange_rate || 209))),
-                    sellerManagerCode: `OPT${optIdx}${valIdx}`
-                }))
-              )
-            : null;
+        // 옵션 데이터 변환 (번역 포함)
+        let optionCombinations = null;
+        if (product.options?.length > 0) {
+            const combinations = [];
+            for (let optIdx = 0; optIdx < product.options.length; optIdx++) {
+                const opt = product.options[optIdx];
+                for (let valIdx = 0; valIdx < opt.values.length; valIdx++) {
+                    const val = opt.values[valIdx];
+                    let optionValue = val.name_kr || val.name || val;
+
+                    // 중국어면 번역
+                    if (typeof optionValue === 'string' && /[\u4e00-\u9fa5]/.test(optionValue)) {
+                        try {
+                            const translateRes = await fetch('http://localhost:3000/api/translate', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ text: optionValue, from: 'zh', to: 'ko' })
+                            });
+                            const translateData: any = await translateRes.json();
+                            if (translateData.translatedText) {
+                                optionValue = translateData.translatedText;
+                            }
+                        } catch (err) {
+                            console.log(`옵션 번역 실패, 원문 사용: ${optionValue}`);
+                        }
+                    }
+
+                    // 옵션 이미지 업로드 (있는 경우)
+                    let optionImageUrls = undefined;
+                    if (val.image && val.image.startsWith('http')) {
+                        try {
+                            console.log(`  옵션 [${optIdx}-${valIdx}] 이미지 업로드 중: ${val.image.substring(0, 60)}...`);
+                            const uploadedOptImg = await uploadImageToNaver(val.image, accessToken);
+                            optionImageUrls = [uploadedOptImg];
+                            console.log(`  ✅ 옵션 이미지 업로드 성공`);
+                        } catch (err: any) {
+                            console.warn(`  ⚠️ 옵션 이미지 업로드 실패: ${err.message}`);
+                        }
+                    }
+
+                    const combination: any = {
+                        id: `${optIdx}-${valIdx}`,
+                        optionName1: opt.name_kr || opt.name || `옵션${optIdx + 1}`,
+                        optionValue1: optionValue,
+                        stockQuantity: val.quantity || 999,
+                        price: val.price_krw ? Math.round(val.price_krw) : (product.selling_price || Math.round(product.price * (settings.exchange_rate || 209))),
+                        sellerManagerCode: `OPT${optIdx}${valIdx}`
+                    };
+
+                    if (optionImageUrls) {
+                        combination.optionImageUrls = optionImageUrls;
+                    }
+
+                    combinations.push(combination);
+                }
+            }
+            optionCombinations = combinations;
+
+            // 옵션 검증 및 로깅
+            console.log(`\n📦 옵션 정보:`);
+            console.log(`  - 옵션 그룹 수: ${product.options.length}개`);
+            console.log(`  - 옵션 조합 수: ${optionCombinations.length}개`);
+            if (optionCombinations.length > 0) {
+                console.log(`  - 샘플 조합:`, JSON.stringify(optionCombinations[0], null, 2));
+            }
+
+            if (product.options.length > 0 && optionCombinations.length === 0) {
+                console.error(`⚠️ 경고: 옵션이 ${product.options.length}개 있지만 optionCombinations가 비어있습니다!`);
+                console.error(`  상품 옵션 데이터:`, JSON.stringify(product.options, null, 2));
+            }
+        } else if (product.options && product.options.length > 0) {
+            console.warn(`⚠️ 옵션이 있지만 비활성화됨: ${product.options.length}개 옵션 그룹 존재`);
+        }
 
         // 카테고리 ID 확인 (필수 필드)
         const categoryId = product.naver_category_id || settings.default_category_id || '50000169';
@@ -1276,6 +1409,9 @@ app.post('/api/naver/products/register', async (req, res) => {
                 salePrice: product.selling_price || Math.round(product.price * (settings.exchange_rate || 209)),
                 stockQuantity: 999,  // 재고수량은 항상 입력
                 optionInfo: optionCombinations ? {
+                    optionCombinationGroupNames: product.options?.map((opt: any, idx: number) => ({
+                        name: opt.name_kr || opt.name || `옵션${idx + 1}`
+                    })) || [],
                     optionCombinations: optionCombinations,
                     useStockManagement: true,
                     optionDeliveryAttributes: []
@@ -1292,13 +1428,13 @@ app.post('/api/naver/products/register', async (req, res) => {
                     },
                     claimDeliveryInfo: {
                         returnDeliveryCompanyPriorityType: 'PRIMARY',
-                        returnDeliveryFee: 3000,
-                        exchangeDeliveryFee: 6000,
+                        returnDeliveryFee: settings.return_fee_custom || 3000,
+                        exchangeDeliveryFee: (settings.return_fee_custom || 3000) * 2,
                         shippingAddressId: settings.shipping_address_id ? parseInt(settings.shipping_address_id) : parseInt(settings.outbound_location_id),
                         returnAddressId: parseInt(settings.return_address_id)
                     }
                 },
-                detailContent: product.description || '상품 상세 설명',
+                detailContent: buildDetailContent(product, uploadedImageUrls),
                 detailAttribute: {
                     naverShoppingSearchInfo: {
                         manufacturerName: '해외구매대행',
@@ -1331,35 +1467,31 @@ app.post('/api/naver/products/register', async (req, res) => {
                         }
                     },
                     certificationTargetExcludeContent: {
+                        childCertifiedProductExclusionYn: true,
                         kcCertifiedProductExclusionYn: 'KC_EXEMPTION_OBJECT',
                         kcExemptionType: 'OVERSEAS'
-                    },
-                    productCertificationInfos: [
-                        {
-                            certificationKindType: 'KC_PRODUCT_SAFETY',
-                            certificationInfos: [
-                                {
-                                    name: '해외구매대행',
-                                    certificationNumber: '해외구매대행',
-                                    certificationMark: {
-                                        usable: false
-                                    }
-                                }
-                            ]
-                        }
-                    ]
+                    }
                 }
             },
             smartstoreChannelProduct: {
                 storeKeepExclusiveProduct: false,
                 naverShoppingRegistration: true,
-                channelProductDisplayStatusType: 'SUSPENSION'  // API 문서: WAIT, ON, SUSPENSION
+                channelProductDisplayStatusType: 'ON'  // 판매중
             }
         };
 
         // 네이버 상품 등록 API 호출
         const requestBody = JSON.stringify(naverProduct);
         console.log('📤 전송할 데이터 (전체):', JSON.stringify(naverProduct, null, 2));
+
+        // optionInfo 상세 로깅
+        if (naverProduct.originProduct.optionInfo) {
+            console.log(`\n✅ optionInfo가 포함되어 전송됩니다:`);
+            console.log(`  - 옵션 그룹명: ${naverProduct.originProduct.optionInfo.optionCombinationGroupNames?.map((g: any) => g.name).join(', ')}`);
+            console.log(`  - 옵션 조합 수: ${naverProduct.originProduct.optionInfo.optionCombinations?.length}개`);
+        } else {
+            console.log(`\n⚠️ optionInfo가 null입니다 - 단일 상품으로 등록됩니다`);
+        }
 
         const response = await fetch('https://api.commerce.naver.com/external/v2/products', {
             method: 'POST',
@@ -1381,12 +1513,320 @@ app.post('/api/naver/products/register', async (req, res) => {
 
         res.json({
             success: true,
-            productNo: result.productNo,
+            productNo: result.originProductNo || result.smartstoreChannelProductNo || result.productNo,
+            originProductNo: result.originProductNo,
+            smartstoreChannelProductNo: result.smartstoreChannelProductNo,
             message: '상품이 네이버 스마트스토어에 등록되었습니다'
         });
 
     } catch (error: any) {
         console.error('❌ 상품 등록 오류:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 네이버 상품 수정 API
+app.put('/api/naver/products/:originProductNo', async (req, res) => {
+    try {
+        const { originProductNo } = req.params;
+        const { productId } = req.body;
+
+        console.log(`📝 네이버 상품 수정: ${originProductNo}`);
+
+        const accessToken = await getNaverAccessToken();
+
+        // Redis에서 상품 정보 가져오기
+        const productData = await redis.get(`product:${productId}`);
+        if (!productData) {
+            return res.status(404).json({ error: '상품을 찾을 수 없습니다' });
+        }
+
+        const product = JSON.parse(productData);
+
+        // 설정 가져오기
+        const settingsData = await redis.get('settings');
+        const settings = settingsData ? JSON.parse(settingsData) : {};
+
+        // 이미지 업로드 (등록 API와 동일)
+        const baseUrl = process.env.BASE_URL || 'http://localhost';
+        const toPublicUrl = (url: string) => {
+            if (url.startsWith('http://') || url.startsWith('https://')) {
+                return url;
+            }
+            return `${baseUrl}${url.startsWith('/') ? url : '/' + url}`;
+        };
+
+        let imageUrls: string[] = [];
+        if (product.images && product.images.length > 0) {
+            imageUrls = product.images.map((img: string) => toPublicUrl(img));
+        }
+
+        if (product.detail_images && product.detail_images.length > 0) {
+            const detailUrls = product.detail_images.map((img: string) =>
+                img.startsWith('http') ? img : toPublicUrl(img)
+            );
+            imageUrls = [...imageUrls, ...detailUrls];
+        }
+
+        console.log(`📤 ${imageUrls.length}개의 이미지를 네이버에 업로드 중... (최대 20개)`);
+        const uploadedImageUrls: string[] = [];
+        const failedImages: {index: number, url: string, error: string}[] = [];
+
+        for (let i = 0; i < Math.min(imageUrls.length, 20); i++) {
+            try {
+                console.log(`  [${i + 1}/${Math.min(imageUrls.length, 20)}] 업로드 중: ${imageUrls[i].substring(0, 60)}...`);
+                const uploadedUrl = await uploadImageToNaver(imageUrls[i], accessToken);
+                uploadedImageUrls.push(uploadedUrl);
+                console.log(`  ✅ [${i + 1}] 업로드 성공`);
+            } catch (error: any) {
+                const errorMsg = error.message || String(error);
+                failedImages.push({index: i + 1, url: imageUrls[i], error: errorMsg});
+                console.error(`  ❌ [${i + 1}] 업로드 실패: ${errorMsg}`);
+                if (i === 0) {
+                    throw new Error(`대표 이미지 업로드 실패: ${errorMsg}`);
+                }
+            }
+        }
+
+        console.log(`\n📊 이미지 업로드 결과: ${uploadedImageUrls.length}/${Math.min(imageUrls.length, 20)}개 성공`);
+        if (failedImages.length > 0) {
+            console.warn(`⚠️ 실패한 이미지 ${failedImages.length}개:`);
+            failedImages.forEach(f => {
+                console.warn(`  - [${f.index}] ${f.url.substring(0, 60)}... (오류: ${f.error})`);
+            });
+        }
+
+        const representativeImage = uploadedImageUrls.length > 0
+            ? { url: uploadedImageUrls[0] }
+            : null;
+        const optionalImages = uploadedImageUrls.length > 1
+            ? uploadedImageUrls.slice(1).map((img: string) => ({ url: img }))
+            : [];
+
+        // 옵션 데이터 변환 (번역 포함)
+        let optionCombinations = null;
+        if (product.options?.length > 0) {
+            const combinations = [];
+            for (let optIdx = 0; optIdx < product.options.length; optIdx++) {
+                const opt = product.options[optIdx];
+                for (let valIdx = 0; valIdx < opt.values.length; valIdx++) {
+                    const val = opt.values[valIdx];
+                    let optionValue = val.name_kr || val.name || val;
+
+                    if (typeof optionValue === 'string' && /[\u4e00-\u9fa5]/.test(optionValue)) {
+                        try {
+                            const translateRes = await fetch('http://localhost:3000/api/translate', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ text: optionValue, from: 'zh', to: 'ko' })
+                            });
+                            const translateData: any = await translateRes.json();
+                            if (translateData.translatedText) {
+                                optionValue = translateData.translatedText;
+                            }
+                        } catch (err) {
+                            console.log(`옵션 번역 실패, 원문 사용: ${optionValue}`);
+                        }
+                    }
+
+                    // 옵션 이미지 업로드 (있는 경우)
+                    let optionImageUrls = undefined;
+                    if (val.image && val.image.startsWith('http')) {
+                        try {
+                            console.log(`  옵션 [${optIdx}-${valIdx}] 이미지 업로드 중: ${val.image.substring(0, 60)}...`);
+                            const uploadedOptImg = await uploadImageToNaver(val.image, accessToken);
+                            optionImageUrls = [uploadedOptImg];
+                            console.log(`  ✅ 옵션 이미지 업로드 성공`);
+                        } catch (err: any) {
+                            console.warn(`  ⚠️ 옵션 이미지 업로드 실패: ${err.message}`);
+                        }
+                    }
+
+                    const combination: any = {
+                        id: `${optIdx}-${valIdx}`,
+                        optionName1: opt.name_kr || opt.name || `옵션${optIdx + 1}`,
+                        optionValue1: optionValue,
+                        stockQuantity: val.quantity || 999,
+                        price: val.price_krw ? Math.round(val.price_krw) : (product.selling_price || Math.round(product.price * (settings.exchange_rate || 209))),
+                        sellerManagerCode: `OPT${optIdx}${valIdx}`
+                    };
+
+                    if (optionImageUrls) {
+                        combination.optionImageUrls = optionImageUrls;
+                    }
+
+                    combinations.push(combination);
+                }
+            }
+            optionCombinations = combinations;
+
+            // 옵션 검증 및 로깅
+            console.log(`\n📦 옵션 정보:`);
+            console.log(`  - 옵션 그룹 수: ${product.options.length}개`);
+            console.log(`  - 옵션 조합 수: ${optionCombinations.length}개`);
+            if (optionCombinations.length > 0) {
+                console.log(`  - 샘플 조합:`, JSON.stringify(optionCombinations[0], null, 2));
+            }
+
+            if (product.options.length > 0 && optionCombinations.length === 0) {
+                console.error(`⚠️ 경고: 옵션이 ${product.options.length}개 있지만 optionCombinations가 비어있습니다!`);
+                console.error(`  상품 옵션 데이터:`, JSON.stringify(product.options, null, 2));
+            }
+        } else if (product.options && product.options.length > 0) {
+            console.warn(`⚠️ 옵션이 있지만 비활성화됨: ${product.options.length}개 옵션 그룹 존재`);
+        }
+
+        const categoryId = product.naver_category_id || settings.default_category_id || '50000169';
+
+        // 수정 요청 데이터
+        const updateData = {
+            originProduct: {
+                id: originProductNo,
+                statusType: 'SALE',
+                saleType: 'NEW',
+                leafCategoryId: categoryId,
+                name: product.title_kr || product.title,
+                images: {
+                    representativeImage: representativeImage,
+                    optionalImages: optionalImages
+                },
+                salePrice: product.selling_price || Math.round(product.price * (settings.exchange_rate || 209)),
+                stockQuantity: 999,
+                optionInfo: optionCombinations ? {
+                    optionCombinationGroupNames: product.options?.map((opt: any, idx: number) => ({
+                        name: opt.name_kr || opt.name || `옵션${idx + 1}`
+                    })) || [],
+                    optionCombinations: optionCombinations,
+                    useStockManagement: true,
+                    optionDeliveryAttributes: []
+                } : null,
+                deliveryInfo: {
+                    deliveryType: 'DELIVERY',
+                    deliveryAttributeType: 'NORMAL',
+                    deliveryCompany: settings.default_delivery_company || 'CJGLS',
+                    deliveryBundleGroupUsable: false,
+                    visitAddressId: parseInt(settings.outbound_location_id),
+                    returnCenterCode: settings.return_address_id,
+                    deliveryFee: {
+                        deliveryFeeType: 'FREE'
+                    },
+                    claimDeliveryInfo: {
+                        returnDeliveryCompanyPriorityType: 'PRIMARY',
+                        returnDeliveryFee: settings.return_fee_custom || 3000,
+                        exchangeDeliveryFee: (settings.return_fee_custom || 3000) * 2,
+                        shippingAddressId: settings.shipping_address_id ? parseInt(settings.shipping_address_id) : parseInt(settings.outbound_location_id),
+                        returnAddressId: parseInt(settings.return_address_id)
+                    }
+                },
+                detailContent: buildDetailContent(product, uploadedImageUrls),
+                detailAttribute: {
+                    naverShoppingSearchInfo: {
+                        manufacturerName: '해외구매대행',
+                        brandName: '해외구매대행',
+                        modelName: product.product_id || ''
+                    },
+                    afterServiceInfo: {
+                        afterServiceTelephoneNumber: settings.as_phone || '1588-0000',
+                        afterServiceGuideContent: settings.as_guide || '상품 수령 후 7일 이내 교환/반품 가능합니다.'
+                    },
+                    minorPurchasable: true,
+                    originAreaInfo: {
+                        originAreaCode: '0200037',
+                        importer: settings.importer_name || '해외구매대행',
+                        plural: false
+                    },
+                    productInfoProvidedNotice: {
+                        productInfoProvidedNoticeType: 'ETC',
+                        etc: {
+                            itemName: product.title_kr || product.title,
+                            modelName: product.product_id || '상품 페이지 참조',
+                            returnCostReason: '상품 페이지 참조',
+                            noRefundReason: '상품 페이지 참조',
+                            qualityAssuranceStandard: '상품 페이지 참조',
+                            compensationProcedure: '상품 페이지 참조',
+                            troubleShootingContents: '상품 페이지 참조',
+                            afterServiceDirector: settings.importer_name || '해외구매대행',
+                            manufacturer: '해외구매대행',
+                            countryOfManufacture: '중국'
+                        }
+                    },
+                    certificationTargetExcludeContent: {
+                        childCertifiedProductExclusionYn: true,
+                        kcCertifiedProductExclusionYn: 'KC_EXEMPTION_OBJECT',
+                        kcExemptionType: 'OVERSEAS'
+                    }
+                }
+            },
+            smartstoreChannelProduct: {
+                channelProductDisplayStatusType: 'ON'
+            }
+        };
+
+        console.log('📤 수정 데이터 전송 중...');
+        console.log('전송할 데이터:', JSON.stringify(updateData, null, 2));
+
+        // optionInfo 상세 로깅
+        if (updateData.originProduct.optionInfo) {
+            console.log(`\n✅ optionInfo가 포함되어 전송됩니다:`);
+            console.log(`  - 옵션 그룹명: ${updateData.originProduct.optionInfo.optionCombinationGroupNames?.map((g: any) => g.name).join(', ')}`);
+            console.log(`  - 옵션 조합 수: ${updateData.originProduct.optionInfo.optionCombinations?.length}개`);
+        } else {
+            console.log(`\n⚠️ optionInfo가 null입니다 - 단일 상품으로 수정됩니다`);
+        }
+
+        const response = await fetch(`https://api.commerce.naver.com/external/v2/products/origin-products/${originProductNo}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('❌ 상품 수정 실패:', errorData);
+            throw new Error(`상품 수정 실패: ${JSON.stringify(errorData)}`);
+        }
+
+        const result: any = await response.json();
+        console.log('✅ 상품 수정 성공:', result);
+
+        res.json({
+            success: true,
+            originProductNo: result.originProductNo,
+            message: '상품이 수정되었습니다'
+        });
+
+    } catch (error: any) {
+        console.error('❌ 상품 수정 오류:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 상품에 네이버 상품번호 저장
+app.put('/api/products/extracted/:productId/naver', async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const { originProductNo, smartstoreChannelProductNo } = req.body;
+
+        const data = await redis.get(`product:${productId}`);
+        if (!data) {
+            return res.status(404).json({ error: '상품을 찾을 수 없습니다' });
+        }
+
+        const product = JSON.parse(data);
+        product.naver_origin_product_no = originProductNo;
+        product.naver_smartstore_channel_product_no = smartstoreChannelProductNo;
+        product.naver_uploaded_at = new Date().toISOString();
+        product.naver_product_status = 'ON'; // 등록시 기본값은 판매중
+
+        await redis.set(`product:${productId}`, JSON.stringify(product));
+
+        console.log(`💾 네이버 상품번호 저장: ${productId} -> ${originProductNo} (업로드: ${product.naver_uploaded_at})`);
+
+        res.json({ status: 'success', originProductNo, smartstoreChannelProductNo });
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });

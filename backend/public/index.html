@@ -1257,8 +1257,8 @@
                             <th class="resizable" width="120">구분(수집)</th>
                             <th class="resizable">상품명(수집)</th>
                             <th class="resizable" width="120">원본마켓</th>
-                            <th class="resizable" width="100">마켓명/관리자</th>
-                            <th class="resizable" width="100">유입일</th>
+                            <th class="resizable" width="120">스토어업로드 일자</th>
+                            <th class="resizable" width="100">상태</th>
                             <th class="resizable" width="150">빠른수정</th>
                             <th class="resizable" width="120">원본상품상세</th>
                             <th class="resizable" width="100">업로드</th>
@@ -2646,8 +2646,23 @@
                 const thumbnail = p.thumbnail || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22><rect fill=%22%23f5f5f5%22 width=%22100%%22 height=%22100%%22/></svg>';
                 const title = p.title_kr || p.title || '제목 없음';
                 const productId = p.product_id || '';
-                const createdDate = p.created_at ? new Date(p.created_at).toLocaleDateString('ko-KR') : '-';
-                const marketName = p.uploaded_market || '-';
+
+                // 스토어 업로드 일자: naver_uploaded_at 사용
+                const uploadDate = p.naver_uploaded_at
+                    ? new Date(p.naver_uploaded_at).toLocaleDateString('ko-KR', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })
+                    : '-';
+
+                // 상태: 네이버 등록 여부 및 판매 상태
+                const productStatus = p.naver_origin_product_no
+                    ? (p.naver_product_status === 'OFF' ? '판매중지' : '판매중')
+                    : '미등록';
+
                 const isUploaded = p.upload_status === 'uploaded';
                 const rowNumber = index + 1;
 
@@ -2665,8 +2680,13 @@
                             <div class="product-name">${title}</div>
                         </td>
                         <td>타오바오</td>
-                        <td>${marketName}</td>
-                        <td>${createdDate}</td>
+                        <td style="font-size:12px;">${uploadDate}</td>
+                        <td>
+                            <span class="status-badge ${productStatus === '판매중' ? 'collected' : productStatus === '판매중지' ? 'pending' : 'none'}"
+                                  style="${productStatus === '미등록' ? 'background:#e0e0e0; color:#666;' : ''}">
+                                ${productStatus}
+                            </span>
+                        </td>
                         <td>
                             <div class="action-buttons-grid">
                                 <button class="action-btn-grid" title="이미지" onclick="showThumbnailModal('${productId}')">📷</button>
@@ -2677,7 +2697,10 @@
                         </td>
                         <td>
                             <button class="view-detail-btn" onclick="showDetail('${productId}')">상세보기</button>
-                            <button class="view-detail-btn" onclick="registerToNaver('${productId}')" style="background:#03c75a; margin-top:5px;">네이버 등록</button>
+                            ${p.naver_origin_product_no
+                                ? `<button class="view-detail-btn" onclick="updateToNaver('${productId}', '${p.naver_origin_product_no}')" style="background:#ff6b00; margin-top:5px;">네이버 수정</button>`
+                                : `<button class="view-detail-btn" onclick="registerToNaver('${productId}')" style="background:#03c75a; margin-top:5px;">네이버 등록</button>`
+                            }
                         </td>
                         <td>
                             <span class="upload-status ${isUploaded ? 'uploaded' : 'pending'}">
@@ -2798,7 +2821,7 @@
                                         <span class="option-text">
                                             <span class="opt-cn">${valueName}</span>
                                             <span class="opt-kr">${translatedValueName}</span>
-                                            <span class="opt-price">${price ? `₩${optKrwPrice.toLocaleString()} <small style="color:#888;">(¥${price})</small>` : '가격 미설정'}</span>
+                                            <span class="opt-price">${optKrwPrice !== null && optKrwPrice !== undefined ? `₩${optKrwPrice.toLocaleString()} <small style="color:#888;">${v.price_krw ? '(직접입력)' : price ? `(¥${price})` : ''}</small>` : '가격 미설정'}</span>
                                             ${quantity !== null ? `<span class="opt-stock ${hasStock ? 'in-stock' : 'no-stock'}">${hasStock ? '재고: ' + quantity : '품절'}</span>` : ''}
                                         </span>
                                     </span>
@@ -2842,13 +2865,13 @@
 
                         <!-- 탭 메뉴 -->
                         <div class="pricing-tabs">
-                            <button class="pricing-tab active" onclick="switchPricingTab('price-${id}')">💰 원본상품가격</button>
-                            <button class="pricing-tab" onclick="switchPricingTab('selling-${id}')">💵 판매가 설정</button>
+                            <button class="pricing-tab active" onclick="switchPricingTab('selling-${id}')">💵 판매가 설정</button>
                             <button class="pricing-tab" onclick="switchPricingTab('shipping-${id}')">🚚 배송비</button>
+                            <button class="pricing-tab" onclick="switchPricingTab('price-${id}')">💰 원본상품가격</button>
                         </div>
 
                         <!-- 탭 컨텐츠 -->
-                        <div class="pricing-tab-content active" id="price-${id}">
+                        <div class="pricing-tab-content" id="price-${id}">
                             <div class="price-section">
                                 <div class="price-item">
                                     <div class="label">타오바오 가격 (CNY)</div>
@@ -2862,7 +2885,7 @@
                             ${p.price_range ? `<p style="margin-top:10px;color:#888;font-size:13px;">가격 범위: ¥${p.price_range}</p>` : ''}
                         </div>
 
-                        <div class="pricing-tab-content" id="selling-${id}">
+                        <div class="pricing-tab-content active" id="selling-${id}">
                             <!-- 가격 배수 (X) -->
                             <div style="margin-bottom:20px;">
                                 <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">1단계: 가격 배수 (X)</div>
@@ -2916,7 +2939,7 @@
                             <!-- 배송비 입력 -->
                             <div id="shipping-fee-input-${id}" style="display:${p.free_shipping ? 'none' : 'block'}; margin-bottom:15px;">
                                 <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">배송비 (원)</div>
-                                <input type="number" id="shipping-fee-value-${id}" value="${p.shipping_fee || ''}" onchange="saveShippingFee('${id}')" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px;" placeholder="배송비를 입력하세요">
+                                <input type="number" id="shipping-fee-value-${id}" value="${p.shipping_fee || ''}" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px;" placeholder="배송비를 입력하세요">
                             </div>
 
                             <!-- 환경설정 배송비 옵션 -->
@@ -2926,7 +2949,13 @@
                             <div style="margin-bottom:20px;">
                                 <div style="font-weight:600; margin-bottom:8px; color:#2c3e50;">반품비 설정</div>
                                 <div id="return-fee-options-${id}" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;"></div>
-                                <input type="number" id="return-fee-value-${id}" value="${p.return_fee || ''}" onchange="saveReturnFee('${id}')" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px; margin-top:10px;" placeholder="반품비를 입력하세요">
+                                <input type="number" id="return-fee-value-${id}" value="${p.return_fee || ''}" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px; margin-top:10px;" placeholder="반품비를 입력하세요">
+                            </div>
+
+                            <!-- 저장 버튼 -->
+                            <div style="display:flex; gap:10px;">
+                                <button onclick="saveShippingFee('${id}')" style="flex:1; padding:12px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-weight:600;">💾 배송비 저장</button>
+                                <button onclick="saveReturnFee('${id}')" style="flex:1; padding:12px; background:#ff6b00; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-weight:600;">💾 반품비 저장</button>
                             </div>
                         </div>
                     </div>
@@ -2979,12 +3008,15 @@
 
                     <!-- 옵션 -->
                     <div class="info-card">
-                        <div class="info-card-title">⚙️ 상품 옵션 <span style="color:#888;font-weight:normal;">(${p.options?.length || 0}개)</span></div>
+                        <div class="info-card-title">
+                            ⚙️ 상품 옵션 <span style="color:#888;font-weight:normal;">(${p.options?.length || 0}개)</span>
+                            <button class="btn btn-sm" style="margin-left:auto;padding:4px 12px;font-size:12px;" onclick="renameOptionsBulk('${id}')">옵션명 일괄변경</button>
+                        </div>
                         <div id="options-container-${id}">
                             ${optionsHtml}
                         </div>
                     </div>
-                    
+
                     <!-- 상세 이미지 -->
                     <div class="info-card">
                         <div class="info-card-title">🖼️ 상세 이미지 <span style="color:#888;font-weight:normal;">(${p.detail_images?.length || 0}개)</span></div>
@@ -4165,7 +4197,50 @@
                 showToast('옵션 삭제 실패', 'error');
             }
         }
-        
+
+        // 옵션명 일괄 변경
+        async function renameOptionsBulk(productId) {
+            if (!confirm('옵션명을 일괄 변경하시겠습니까?\n옵션명: 옵션1, 옵션2...\n옵션값: 옵션1-1, 옵션1-2...')) {
+                return;
+            }
+
+            try {
+                showToast('옵션명 변경 중...', 'info');
+
+                const res = await fetch(`/api/products/extracted/${productId}`);
+                const product = await res.json();
+
+                if (!product.options || product.options.length === 0) {
+                    showToast('옵션이 없습니다', 'error');
+                    return;
+                }
+
+                // 옵션명과 옵션값을 순서대로 변경
+                product.options.forEach((opt, optIdx) => {
+                    opt.name = `颜色${optIdx + 1}`;  // 중국어
+                    opt.name_kr = `옵션${optIdx + 1}`;
+
+                    // 옵션값도 변경
+                    opt.values.forEach((val, valIdx) => {
+                        val.name_kr = `옵션${optIdx + 1}-${valIdx + 1}`;
+                    });
+                });
+
+                await fetch(`/api/products/extracted/${productId}/options`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ options: product.options })
+                });
+
+                showToast(`옵션명과 옵션값이 변경되었습니다`);
+                showDetail(productId);
+                loadProducts();
+            } catch (err) {
+                console.error(err);
+                showToast('옵션명 변경 실패', 'error');
+            }
+        }
+
         // 옵션 수정 모달 열기 (krwPrice: 원화가격, cnyPrice: 위안화가격)
         function openEditOption(optIdx, valIdx, cnName, krName, krwPrice, cnyPrice, productId) {
             currentEditOption = { optIdx, valIdx, productId };
@@ -5170,11 +5245,23 @@
 
         // 네이버 스마트스토어 상품 등록
         async function registerToNaver(productId) {
-            if (!confirm('이 상품을 네이버 스마트스토어에 등록하시겠습니까?')) {
-                return;
-            }
-
             try {
+                // 이미 등록되었는지 확인
+                const productRes = await fetch(`/api/products/extracted/${productId}`);
+                const product = await productRes.json();
+
+                if (product.naver_origin_product_no) {
+                    // 이미 등록된 상품 - 업데이트로 전환
+                    if (!confirm('이미 등록된 상품입니다. 네이버 스마트스토어에서 수정하시겠습니까?')) {
+                        return;
+                    }
+                    return updateToNaver(productId, product.naver_origin_product_no);
+                }
+
+                if (!confirm('이 상품을 네이버 스마트스토어에 등록하시겠습니까?')) {
+                    return;
+                }
+
                 showToast('상품 등록 중...', 'info');
 
                 const response = await fetch('/api/naver/products/register', {
@@ -5194,8 +5281,56 @@
                 showToast('✅ ' + data.message, 'success');
                 console.log('등록된 상품 번호:', data.productNo);
 
+                // originProductNo 저장
+                if (data.originProductNo) {
+                    await fetch(`/api/products/extracted/${productId}/naver`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            originProductNo: data.originProductNo,
+                            smartstoreChannelProductNo: data.smartstoreChannelProductNo
+                        })
+                    });
+
+                    // UI 새로고침
+                    loadProducts();
+                    showDetail(productId);
+                }
+
             } catch (error) {
                 console.error('네이버 상품 등록 오류:', error);
+                showToast('❌ ' + error.message, 'error');
+            }
+        }
+
+        // 네이버 스마트스토어 상품 수정
+        async function updateToNaver(productId, originProductNo) {
+            if (!confirm('이 상품을 네이버 스마트스토어에서 수정하시겠습니까?')) {
+                return;
+            }
+
+            try {
+                showToast('상품 수정 중...', 'info');
+
+                const response = await fetch(`/api/naver/products/${originProductNo}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ productId })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '상품 수정 실패');
+                }
+
+                showToast('✅ ' + data.message, 'success');
+                console.log('수정된 상품 번호:', data.originProductNo);
+
+            } catch (error) {
+                console.error('네이버 상품 수정 오류:', error);
                 showToast('❌ ' + error.message, 'error');
             }
         }
@@ -5573,8 +5708,8 @@
                             const price = v.price || null;
                             const hasStock = quantity === null || quantity > 0;
 
-                            const priceNum = price ? parseFloat(price) : 0;
-                            const optBaseKrw = Math.round(priceNum * rate);
+                            // price_krw가 있으면 그것 사용, 없으면 위안화 가격 변환
+                            const optBaseKrw = v.price_krw ? v.price_krw : (price ? Math.round(parseFloat(price) * rate) : 0);
                             const optCalculatedPrice = Math.round(optBaseKrw * multiplier) + addAmount;
 
                             return `
@@ -5587,7 +5722,7 @@
                                 <span class="option-text">
                                     <span class="opt-cn">${valueName}</span>
                                     <span class="opt-kr">${translatedValueName}</span>
-                                    <span class="opt-price">${price ? `₩${optCalculatedPrice.toLocaleString()} <small style="color:#888;">(¥${price} × ${multiplier} + ${addAmount.toLocaleString()})</small>` : '가격 미설정'}</span>
+                                    <span class="opt-price">${optBaseKrw !== null && optBaseKrw !== undefined ? `₩${optCalculatedPrice.toLocaleString()} <small style="color:#888;">${v.price_krw ? '(직접입력)' : `(¥${price} × ${multiplier} + ${addAmount.toLocaleString()})`}</small>` : '가격 미설정'}</span>
                                     ${quantity !== null ? `<span class="opt-stock ${hasStock ? 'in-stock' : 'no-stock'}">${hasStock ? '재고: ' + quantity : '품절'}</span>` : ''}
                                 </span>
                             </span>
