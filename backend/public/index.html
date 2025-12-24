@@ -1383,26 +1383,26 @@
             </div>
 
             <!-- 카테고리 선택 영역 -->
-            <div id="category-selection-area" style="display:flex; gap:10px; overflow:hidden; max-height:400px;">
+            <div id="category-selection-area" style="display:flex; gap:10px; height:450px; flex-shrink:0;">
                 <!-- 대분류 -->
-                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column;">
-                    <div style="padding:10px; background:#667eea; color:white; font-weight:600; font-size:13px;">대분류</div>
-                    <div id="category-level-1" style="flex:1; overflow-y:auto; padding:5px;"></div>
+                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; min-width:0;">
+                    <div style="padding:10px; background:#667eea; color:white; font-weight:600; font-size:13px; flex-shrink:0;">대분류</div>
+                    <div id="category-level-1" style="flex:1; overflow-y:auto; overflow-x:hidden; padding:5px; min-height:0;"></div>
                 </div>
                 <!-- 중분류 -->
-                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column;">
-                    <div style="padding:10px; background:#764ba2; color:white; font-weight:600; font-size:13px;">중분류</div>
-                    <div id="category-level-2" style="flex:1; overflow-y:auto; padding:5px;"></div>
+                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; min-width:0;">
+                    <div style="padding:10px; background:#764ba2; color:white; font-weight:600; font-size:13px; flex-shrink:0;">중분류</div>
+                    <div id="category-level-2" style="flex:1; overflow-y:auto; overflow-x:hidden; padding:5px; min-height:0;"></div>
                 </div>
                 <!-- 소분류 -->
-                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column;">
-                    <div style="padding:10px; background:#28a745; color:white; font-weight:600; font-size:13px;">소분류</div>
-                    <div id="category-level-3" style="flex:1; overflow-y:auto; padding:5px;"></div>
+                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; min-width:0;">
+                    <div style="padding:10px; background:#28a745; color:white; font-weight:600; font-size:13px; flex-shrink:0;">소분류</div>
+                    <div id="category-level-3" style="flex:1; overflow-y:auto; overflow-x:hidden; padding:5px; min-height:0;"></div>
                 </div>
                 <!-- 세분류 (4단계) -->
-                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column;">
-                    <div style="padding:10px; background:#20c997; color:white; font-weight:600; font-size:13px;">세분류</div>
-                    <div id="category-level-4" style="flex:1; overflow-y:auto; padding:5px;"></div>
+                <div style="flex:1; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; min-width:0;">
+                    <div style="padding:10px; background:#20c997; color:white; font-weight:600; font-size:13px; flex-shrink:0;">세분류</div>
+                    <div id="category-level-4" style="flex:1; overflow-y:auto; overflow-x:hidden; padding:5px; min-height:0;"></div>
                 </div>
             </div>
 

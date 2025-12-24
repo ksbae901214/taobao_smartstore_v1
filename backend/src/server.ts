@@ -934,20 +934,40 @@ function buildDetailContent(product: any, imageUrls: string[]): string {
         html += '</div>';
     }
 
-    // 옵션 정보
+    // 옵션 정보 (이미지 포함)
     if (product.options && product.options.length > 0) {
         html += '<div style="padding:20px;background:#f9f9f9;margin-top:20px;">';
-        html += '<h3 style="font-size:16px;font-weight:bold;margin-bottom:10px;">구매 옵션</h3>';
-        html += '<ul style="list-style:none;padding:0;">';
+        html += '<h3 style="font-size:16px;font-weight:bold;margin-bottom:10px;">📦 구매 옵션</h3>';
+        html += '<div style="display:grid;gap:10px;">';
         product.options.forEach((opt: any) => {
             if (opt.values) {
                 opt.values.forEach((val: any) => {
-                    const price = val.price_krw ? `${val.price_krw.toLocaleString()}원` : '';
-                    html += `<li style="padding:8px 0;border-bottom:1px solid #eee;">${val.name_kr || val.name || val} ${price}</li>`;
+                    const price = val.price_krw ? `₩${val.price_krw.toLocaleString()}` : '';
+                    const optionName = val.name_kr || val.name || val;
+
+                    // 옵션 이미지가 있으면 이미지와 함께 표시
+                    if (val.image) {
+                        html += `<div style="display:flex;align-items:center;padding:10px;background:white;border-radius:8px;border:1px solid #e0e0e0;">`;
+                        html += `<img src="${val.image}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;margin-right:12px;" alt="${optionName}">`;
+                        html += `<div style="flex:1;">`;
+                        html += `<div style="font-weight:600;margin-bottom:4px;">${optionName}</div>`;
+                        if (price) {
+                            html += `<div style="color:#ff6b00;font-weight:bold;">${price}</div>`;
+                        }
+                        html += `</div></div>`;
+                    } else {
+                        // 이미지 없으면 텍스트만
+                        html += `<div style="padding:10px;background:white;border-radius:8px;border:1px solid #e0e0e0;">`;
+                        html += `<span style="font-weight:600;">${optionName}</span>`;
+                        if (price) {
+                            html += ` <span style="color:#ff6b00;font-weight:bold;margin-left:10px;">${price}</span>`;
+                        }
+                        html += `</div>`;
+                    }
                 });
             }
         });
-        html += '</ul></div>';
+        html += '</div></div>';
     }
 
     // 구매 안내
@@ -1153,14 +1173,15 @@ async function uploadImageToNaver(imageUrl: string, accessToken: string): Promis
         const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
         let imageBuffer = Buffer.from(imageResponse.data);
 
-        // Content-Type에서 이미지 포맷 확인
+        // Content-Type에서 이미지 포맷 확인 (URL도 체크)
         const contentType = imageResponse.headers['content-type'] || 'image/jpeg';
+        const isWebP = contentType.includes('webp') || imageUrl.toLowerCase().includes('.webp');
         let extension = 'jpg';
         let mimeType = 'image/jpeg';
 
         // 네이버가 지원하는 포맷: JPEG, JPG, GIF, PNG, BMP
         // WebP나 기타 포맷은 JPEG로 변환
-        if (contentType.includes('webp')) {
+        if (isWebP) {
             console.log('   🔄 WebP 이미지를 JPEG로 변환 중...');
             imageBuffer = await sharp(imageBuffer)
                 .jpeg({ quality: 90 })
@@ -1242,22 +1263,7 @@ app.post('/api/naver/products/register', async (req, res) => {
         // 네이버 액세스 토큰 발급
         const accessToken = await getNaverAccessToken();
 
-        // 이미지 데이터 준비 (원본 타오바오 이미지 URL 사용)
-        // 옵션에서 원본 이미지 URL 추출
-        const originalImageUrls: string[] = [];
-        if (product.options && product.options.length > 0) {
-            for (const option of product.options) {
-                if (option.values && Array.isArray(option.values)) {
-                    for (const value of option.values) {
-                        if (value.image && value.image.startsWith('http')) {
-                            originalImageUrls.push(value.image);
-                        }
-                    }
-                }
-            }
-        }
-
-        // 원본 이미지가 없으면 로컬 이미지를 공개 URL로 변환
+        // 이미지 데이터 준비 (우선순위: 메인 이미지 > 상세 이미지 > 옵션 이미지)
         const baseUrl = process.env.BASE_URL || 'http://localhost';
         const toPublicUrl = (url: string) => {
             if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -1266,19 +1272,21 @@ app.post('/api/naver/products/register', async (req, res) => {
             return `${baseUrl}${url.startsWith('/') ? url : '/' + url}`;
         };
 
-        let imageUrls: string[] = originalImageUrls;
-        if (imageUrls.length === 0 && product.images && product.images.length > 0) {
-            // 로컬 이미지를 공개 URL로 변환
+        // 1. 메인 이미지 (썸네일/대표이미지)
+        let imageUrls: string[] = [];
+        if (product.images && product.images.length > 0) {
             imageUrls = product.images.map((img: string) => toPublicUrl(img));
         }
 
-        // 상세 이미지도 추가
+        // 2. 상세 이미지 추가 (상세페이지 본문용)
         if (product.detail_images && product.detail_images.length > 0) {
             const detailUrls = product.detail_images.map((img: string) =>
                 img.startsWith('http') ? img : toPublicUrl(img)
             );
             imageUrls = [...imageUrls, ...detailUrls];
         }
+
+        // 3. 옵션 이미지는 나중에 개별적으로 업로드 (옵션 빌드시)
 
         // 이미지를 네이버에 업로드
         console.log(`📤 ${imageUrls.length}개의 이미지를 네이버에 업로드 중... (최대 20개)`);
@@ -1452,8 +1460,8 @@ app.post('/api/naver/products/register', async (req, res) => {
                         plural: false
                     },
                     productInfoProvidedNotice: {
-                        productInfoProvidedNoticeType: 'ETC',
-                        etc: {
+                        productInfoProvidedNoticeType: 'OTHERS',
+                        others: {
                             itemName: product.title_kr || product.title,
                             modelName: product.product_id || '상품 페이지 참조',
                             returnCostReason: '상품 페이지 참조',
@@ -1736,8 +1744,8 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
                         plural: false
                     },
                     productInfoProvidedNotice: {
-                        productInfoProvidedNoticeType: 'ETC',
-                        etc: {
+                        productInfoProvidedNoticeType: 'OTHERS',
+                        others: {
                             itemName: product.title_kr || product.title,
                             modelName: product.product_id || '상품 페이지 참조',
                             returnCostReason: '상품 페이지 참조',
