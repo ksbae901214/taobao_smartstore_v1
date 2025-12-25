@@ -8,14 +8,12 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - REDIS_URL=redis://redis:6379
-      # 네이버 스마트스토어 API - 여기에 직접 입력!
-      - NAVER_CLIENT_ID=3BYV4foYrabQwiM7GZtLfr
-      # $가 포함된 값은 $$로 이스케이프 (docker-compose에서 $를 $$로)
-      - NAVER_CLIENT_SECRET=$$2a$$04$$IezTXxCwI/e3RJaQ6Ya7J.
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3000}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     volumes:
       - ./storage:/app/storage
     depends_on:
