@@ -1,7 +1,12 @@
+import dotenv from 'dotenv';
+import path from 'path';
+
+// .env 파일 로드 (프로젝트 루트에서)
+dotenv.config({ path: path.join(__dirname, '../../.env') });
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import path from 'path';
 import fs from 'fs';
 import Redis from 'ioredis';
 import { TranslationServiceClient } from '@google-cloud/translate';
@@ -65,8 +70,8 @@ if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_PROJECT_ID)
     console.log('⚠️ Google Cloud 인증 미설정, 사전 번역 사용');
 }
 
-// 이미지 저장 디렉토리 (절대 경로로 설정)
-const STORAGE_DIR = '/app/storage/images';
+// 이미지 저장 디렉토리 (환경에 따라 자동 설정)
+const STORAGE_DIR = process.env.STORAGE_DIR || path.join(__dirname, '../../storage/images');
 
 console.log('========================================');
 console.log('🚀 서버 시작 중...');
@@ -84,7 +89,9 @@ try {
     // 쓰기 권한 테스트
     const testFile = path.join(STORAGE_DIR, '.write_test');
     fs.writeFileSync(testFile, 'test');
-    fs.unlinkSync(testFile);
+    if (fs.existsSync(testFile)) {
+        fs.unlinkSync(testFile);
+    }
     console.log('✅ 저장 디렉토리 쓰기 권한 확인됨');
 } catch (error) {
     console.error('❌ 저장 디렉토리 오류:', error);

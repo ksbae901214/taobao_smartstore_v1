@@ -3,13 +3,20 @@
 // popup.js - 썸네일/상세 완전 분리, 순차 처리
 // =====================================================
 
-// 서버 URL 고정 설정
-const SERVER_URL = 'https://store-daehaeng.com';
-
 document.addEventListener('DOMContentLoaded', async () => {
-  // 서버 URL을 고정값으로 설정
-  document.getElementById('serverUrl').value = SERVER_URL;
-  await chrome.storage.local.set({ serverUrl: SERVER_URL });
+  // 저장된 서버 URL 불러오기
+  const storage = await chrome.storage.local.get(['serverUrl']);
+  if (storage.serverUrl) {
+    document.getElementById('serverUrl').value = storage.serverUrl;
+  }
+
+  // URL 변경 시 저장 및 재연결
+  const urlInput = document.getElementById('serverUrl');
+  urlInput.addEventListener('change', async () => {
+    const url = urlInput.value.trim();
+    await chrome.storage.local.set({ serverUrl: url });
+    checkServerConnection();
+  });
 
   checkServerConnection();
 
@@ -17,21 +24,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function checkServerConnection() {
-  const serverUrl = document.getElementById('serverUrl').value;
+  const serverUrl = document.getElementById('serverUrl').value.trim();
   const badge = document.getElementById('serverStatus');
-  
+
+  if (!serverUrl) {
+    badge.textContent = '⚠️ 서버 주소 입력 필요';
+    badge.className = 'status-badge disconnected';
+    return;
+  }
+
   badge.textContent = '⏳ 연결 확인 중...';
   badge.className = 'status-badge checking';
-  
+
   try {
-    const response = await fetch(`${serverUrl}/health`, { method: 'GET' });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(`${serverUrl}/api/test`, {
+      method: 'GET',
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
     if (response.ok) {
-      badge.textContent = '✅ 서버 연결됨';
+      const data = await response.json();
+      badge.textContent = `✅ 서버 연결됨 (${serverUrl.includes('localhost') ? '로컬' : '프로덕션'})`;
       badge.className = 'status-badge connected';
+      console.log('서버 응답:', data);
     } else {
-      throw new Error();
+      throw new Error(`HTTP ${response.status}`);
     }
   } catch (error) {
+    console.error('서버 연결 오류:', error);
     badge.textContent = '❌ 서버 연결 안됨';
     badge.className = 'status-badge disconnected';
   }

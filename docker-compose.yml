@@ -14,6 +14,7 @@ services:
       - NODE_ENV=development
       - PORT=3000
       - REDIS_URL=redis://redis:6379
+      - STORAGE_DIR=/app/storage/images
     volumes:
       - ./storage:/app/storage
     depends_on:

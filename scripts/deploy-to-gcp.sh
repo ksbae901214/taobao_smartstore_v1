@@ -71,8 +71,8 @@ echo "🌐 4단계: GCP 서버에 배포"
 echo "서버: $GCP_USER@$GCP_IP"
 echo ""
 
-# SSH 명령 실행
-ssh "$GCP_USER@$GCP_IP" << 'ENDSSH'
+# SSH 명령 실행 (StrictHostKeyChecking=no로 자동 승인)
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$GCP_USER@$GCP_IP" << 'ENDSSH'
     set -e
 
     echo "📁 프로젝트 디렉토리로 이동..."
