@@ -9,3 +9,5 @@ storage/
 .DS_Store
 .vscode/
 .idea/
+.env.local
+.env_b
