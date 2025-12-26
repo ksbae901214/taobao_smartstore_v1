@@ -3,19 +3,16 @@
 // popup.js - 썸네일/상세 완전 분리, 순차 처리
 // =====================================================
 
+// 서버 URL 고정 설정
+const SERVER_URL = 'https://store-daehaeng.com';
+
 document.addEventListener('DOMContentLoaded', async () => {
-  const stored = await chrome.storage.local.get(['serverUrl']);
-  if (stored.serverUrl) {
-    document.getElementById('serverUrl').value = stored.serverUrl;
-  }
-  
+  // 서버 URL을 고정값으로 설정
+  document.getElementById('serverUrl').value = SERVER_URL;
+  await chrome.storage.local.set({ serverUrl: SERVER_URL });
+
   checkServerConnection();
-  
-  document.getElementById('serverUrl').addEventListener('change', async (e) => {
-    await chrome.storage.local.set({ serverUrl: e.target.value });
-    checkServerConnection();
-  });
-  
+
   document.getElementById('extractBtn').addEventListener('click', startExtraction);
 });
 

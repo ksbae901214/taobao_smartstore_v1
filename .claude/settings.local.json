@@ -26,7 +26,13 @@
       "Bash(brew install:*)",
       "Bash(npm --prefix /Users/kyusik/taobao-smartstore/backend run build)",
       "Bash(grep:*)",
-      "Bash(docker-compose:*)"
+      "Bash(docker-compose:*)",
+      "Bash(chmod:*)",
+      "Bash(git add:*)",
+      "Bash(./scripts/daily-commit.sh:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)"
     ]
   }
 }
