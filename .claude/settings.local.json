@@ -32,7 +32,11 @@
       "Bash(./scripts/daily-commit.sh:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(docker rm:*)",
+      "Bash(./restart-gcp-server.sh:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node_modules/.bin/tsc:*)"
     ]
   }
 }

@@ -374,6 +374,16 @@
             margin: 0 auto 15px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Progress 모달 스피너 */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #e0e0e0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
         
         /* 모달 */
         .modal {
@@ -909,6 +919,27 @@
             max-width: 500px;
             width: 90%;
         }
+
+        /* Progress 모달 전용 스타일 - 최상위 레이어 */
+        #progress-modal {
+            z-index: 9999 !important;
+            background: rgba(0,0,0,0.7) !important;
+            backdrop-filter: blur(3px);
+        }
+        #progress-modal .edit-modal-content {
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            animation: modalFadeIn 0.3s ease-out;
+        }
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
         .edit-modal-title {
             font-size: 18px;
             font-weight: bold;
@@ -1347,7 +1378,24 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Progress Bar 모달 (네이버 등록/수정 진행 중) -->
+    <div id="progress-modal" class="edit-modal">
+        <div class="edit-modal-content" style="text-align:center; min-width:400px;">
+            <div class="edit-modal-title" id="progress-title">⏳ 처리 중...</div>
+            <div style="margin: 30px 0;">
+                <div style="width:100%; height:8px; background:#e0e0e0; border-radius:4px; overflow:hidden; margin-bottom:15px;">
+                    <div id="progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, #667eea, #764ba2); transition:width 0.3s;"></div>
+                </div>
+                <p id="progress-message" style="font-size:14px; color:#666; min-height:20px;">잠시만 기다려주세요...</p>
+            </div>
+            <div style="display:flex; justify-content:center; align-items:center; gap:8px; color:#999; font-size:13px;">
+                <div class="spinner"></div>
+                <span>처리 중입니다...</span>
+            </div>
+        </div>
+    </div>
+
     <!-- 삭제 확인 모달 -->
     <div id="delete-confirm-modal" class="edit-modal">
         <div class="edit-modal-content" style="text-align:center;">
@@ -5247,6 +5295,25 @@
             }
         }
 
+        // Progress 모달 관련 함수
+        function showProgressModal(title, message) {
+            document.getElementById('progress-title').textContent = title;
+            document.getElementById('progress-message').textContent = message;
+            document.getElementById('progress-bar').style.width = '0%';
+            document.getElementById('progress-modal').classList.add('show');
+        }
+
+        function updateProgress(percent, message) {
+            document.getElementById('progress-bar').style.width = percent + '%';
+            if (message) {
+                document.getElementById('progress-message').textContent = message;
+            }
+        }
+
+        function hideProgressModal() {
+            document.getElementById('progress-modal').classList.remove('show');
+        }
+
         // 네이버 스마트스토어 상품 등록
         async function registerToNaver(productId) {
             try {
@@ -5266,7 +5333,13 @@
                     return;
                 }
 
-                showToast('상품 등록 중...', 'info');
+                // Progress 모달 표시
+                showProgressModal('🚀 네이버 스마트스토어 등록 중', '상품 정보를 준비하고 있습니다...');
+                updateProgress(10);
+
+                setTimeout(() => updateProgress(30, '이미지를 업로드하고 있습니다...'), 500);
+                setTimeout(() => updateProgress(60, '상품 옵션을 처리하고 있습니다...'), 1000);
+                setTimeout(() => updateProgress(80, '네이버 API에 등록 중입니다...'), 1500);
 
                 const response = await fetch('/api/naver/products/register', {
                     method: 'POST',
@@ -5279,10 +5352,16 @@
                 const data = await response.json();
 
                 if (!response.ok) {
+                    hideProgressModal();
                     throw new Error(data.error || '상품 등록 실패');
                 }
 
-                showToast('✅ ' + data.message, 'success');
+                updateProgress(100, '등록이 완료되었습니다!');
+                setTimeout(() => {
+                    hideProgressModal();
+                    showToast('✅ ' + data.message, 'success');
+                }, 500);
+
                 console.log('등록된 상품 번호:', data.productNo);
 
                 // originProductNo 저장
@@ -5302,6 +5381,7 @@
                 }
 
             } catch (error) {
+                hideProgressModal();
                 console.error('네이버 상품 등록 오류:', error);
                 showToast('❌ ' + error.message, 'error');
             }
@@ -5314,7 +5394,13 @@
             }
 
             try {
-                showToast('상품 수정 중...', 'info');
+                // Progress 모달 표시
+                showProgressModal('✏️ 네이버 스마트스토어 수정 중', '상품 정보를 준비하고 있습니다...');
+                updateProgress(10);
+
+                setTimeout(() => updateProgress(30, '이미지를 업로드하고 있습니다...'), 500);
+                setTimeout(() => updateProgress(60, '상품 옵션을 처리하고 있습니다...'), 1000);
+                setTimeout(() => updateProgress(80, '네이버 API에 수정 요청 중입니다...'), 1500);
 
                 const response = await fetch(`/api/naver/products/${originProductNo}`, {
                     method: 'PUT',
@@ -5327,13 +5413,20 @@
                 const data = await response.json();
 
                 if (!response.ok) {
+                    hideProgressModal();
                     throw new Error(data.error || '상품 수정 실패');
                 }
 
-                showToast('✅ ' + data.message, 'success');
+                updateProgress(100, '수정이 완료되었습니다!');
+                setTimeout(() => {
+                    hideProgressModal();
+                    showToast('✅ ' + data.message, 'success');
+                }, 500);
+
                 console.log('수정된 상품 번호:', data.originProductNo);
 
             } catch (error) {
+                hideProgressModal();
                 console.error('네이버 상품 수정 오류:', error);
                 showToast('❌ ' + error.message, 'error');
             }

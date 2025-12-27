@@ -601,23 +601,70 @@ app.put('/api/products/extracted/:productId/images', async (req, res) => {
 });
 
 // 상품 삭제 (이미지 포함)
+// 일괄 삭제 API
+app.post('/api/products/extracted/bulk-delete', async (req, res) => {
+    try {
+        const { productIds } = req.body;
+
+        if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+            return res.status(400).json({ error: '삭제할 상품 ID 목록이 필요합니다' });
+        }
+
+        let deletedCount = 0;
+        const errors: string[] = [];
+
+        for (const productId of productIds) {
+            try {
+                // 이미지 디렉토리 삭제
+                const productDir = path.join(STORAGE_DIR, productId);
+                if (fs.existsSync(productDir)) {
+                    fs.rmSync(productDir, { recursive: true, force: true });
+                    console.log(`🗑️ 이미지 폴더 삭제: ${productDir}`);
+                }
+
+                // Redis에서 삭제
+                await redis.del(`product:${productId}`);
+                await redis.srem('products:list', productId);
+
+                deletedCount++;
+            } catch (error: any) {
+                console.error(`상품 ${productId} 삭제 실패:`, error);
+                errors.push(`${productId}: ${error.message}`);
+            }
+        }
+
+        res.json({
+            status: 'success',
+            message: `${deletedCount}개 상품이 삭제되었습니다`,
+            deletedCount,
+            totalCount: productIds.length,
+            errors: errors.length > 0 ? errors : undefined
+        });
+
+    } catch (error: any) {
+        console.error('일괄 삭제 에러:', error);
+        res.status(500).json({ error: '일괄 삭제 실패', message: error.message });
+    }
+});
+
+// 개별 삭제 API
 app.delete('/api/products/extracted/:productId', async (req, res) => {
     try {
         const { productId } = req.params;
-        
+
         // 이미지 디렉토리 삭제
         const productDir = path.join(STORAGE_DIR, productId);
         if (fs.existsSync(productDir)) {
             fs.rmSync(productDir, { recursive: true, force: true });
             console.log(`🗑️ 이미지 폴더 삭제: ${productDir}`);
         }
-        
+
         // Redis에서 삭제
         await redis.del(`product:${productId}`);
         await redis.srem('products:list', productId);
-        
+
         res.json({ status: 'success', message: '상품이 삭제되었습니다' });
-        
+
     } catch (error) {
         console.error('상품 삭제 에러:', error);
         res.status(500).json({ error: '상품 삭제 실패' });
@@ -930,7 +977,7 @@ app.post('/api/glossary/create', async (req, res) => {
 // 상세페이지 HTML 생성
 // =====================================================
 
-function buildDetailContent(product: any, imageUrls: string[]): string {
+function buildDetailContent(product: any, imageUrls: string[], processedOptions?: any[]): string {
     let html = '<div style="width:100%;max-width:860px;margin:0 auto;">';
 
     // 상품 설명
@@ -947,36 +994,63 @@ function buildDetailContent(product: any, imageUrls: string[]): string {
         html += '</div>';
     }
 
-    // 옵션 정보 (이미지 포함)
-    if (product.options && product.options.length > 0) {
+    // 옵션 정보 (이미지 포함) - processedOptions를 우선 사용 (네이버 업로드된 이미지 URL 포함)
+    if (processedOptions && processedOptions.length > 0) {
         html += '<div style="padding:20px;background:#f9f9f9;margin-top:20px;">';
         html += '<h3 style="font-size:16px;font-weight:bold;margin-bottom:10px;">📦 구매 옵션</h3>';
-        html += '<div style="display:grid;gap:10px;">';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px;">';
+        processedOptions.forEach((opt: any) => {
+            if (opt.values) {
+                opt.values.forEach((val: any) => {
+                    const price = val.price ? `₩${val.price.toLocaleString()}` : '';
+                    const optionName = val.translatedValue || val.name;
+
+                    // 네이버에 업로드된 옵션 이미지 사용 (imageUrls 배열)
+                    const naverImageUrl = val.imageUrls && val.imageUrls.length > 0 ? val.imageUrls[0] : null;
+
+                    // 원본 이미지 URL도 체크 (업로드 실패 시 fallback)
+                    const originalImageUrl = val.originalValue?.image;
+                    const imageUrl = naverImageUrl || originalImageUrl;
+
+                    // 옵션명을 위에, 이미지를 아래에 배치
+                    html += `<div style="padding:15px;background:white;border-radius:8px;border:1px solid #e0e0e0;text-align:center;">`;
+                    html += `<div style="font-weight:600;margin-bottom:10px;font-size:14px;">${optionName}</div>`;
+
+                    if (imageUrl) {
+                        html += `<img src="${imageUrl}" style="width:100%;max-width:180px;height:180px;object-fit:cover;border-radius:6px;margin-bottom:10px;" alt="${optionName}">`;
+                    }
+
+                    if (price) {
+                        html += `<div style="color:#ff6b00;font-weight:bold;font-size:15px;">${price}</div>`;
+                    }
+                    html += `</div>`;
+                });
+            }
+        });
+        html += '</div></div>';
+    } else if (product.options && product.options.length > 0) {
+        // processedOptions가 없으면 원본 product.options 사용 (fallback)
+        html += '<div style="padding:20px;background:#f9f9f9;margin-top:20px;">';
+        html += '<h3 style="font-size:16px;font-weight:bold;margin-bottom:10px;">📦 구매 옵션</h3>';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px;">';
         product.options.forEach((opt: any) => {
             if (opt.values) {
                 opt.values.forEach((val: any) => {
                     const price = val.price_krw ? `₩${val.price_krw.toLocaleString()}` : '';
                     const optionName = val.name_kr || val.name || val;
 
-                    // 옵션 이미지가 있으면 이미지와 함께 표시
+                    // 옵션명을 위에, 이미지를 아래에 배치
+                    html += `<div style="padding:15px;background:white;border-radius:8px;border:1px solid #e0e0e0;text-align:center;">`;
+                    html += `<div style="font-weight:600;margin-bottom:10px;font-size:14px;">${optionName}</div>`;
+
                     if (val.image) {
-                        html += `<div style="display:flex;align-items:center;padding:10px;background:white;border-radius:8px;border:1px solid #e0e0e0;">`;
-                        html += `<img src="${val.image}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;margin-right:12px;" alt="${optionName}">`;
-                        html += `<div style="flex:1;">`;
-                        html += `<div style="font-weight:600;margin-bottom:4px;">${optionName}</div>`;
-                        if (price) {
-                            html += `<div style="color:#ff6b00;font-weight:bold;">${price}</div>`;
-                        }
-                        html += `</div></div>`;
-                    } else {
-                        // 이미지 없으면 텍스트만
-                        html += `<div style="padding:10px;background:white;border-radius:8px;border:1px solid #e0e0e0;">`;
-                        html += `<span style="font-weight:600;">${optionName}</span>`;
-                        if (price) {
-                            html += ` <span style="color:#ff6b00;font-weight:bold;margin-left:10px;">${price}</span>`;
-                        }
-                        html += `</div>`;
+                        html += `<img src="${val.image}" style="width:100%;max-width:180px;height:180px;object-fit:cover;border-radius:6px;margin-bottom:10px;" alt="${optionName}">`;
                     }
+
+                    if (price) {
+                        html += `<div style="color:#ff6b00;font-weight:bold;font-size:15px;">${price}</div>`;
+                    }
+                    html += `</div>`;
                 });
             }
         });
@@ -1380,72 +1454,139 @@ app.post('/api/naver/products/register', async (req, res) => {
 
         // 옵션 데이터 변환 (번역 포함)
         let optionCombinations = null;
+        let processedOptions: any[] = [];  // 옵션 번역 및 이미지 업로드 결과 (detailContent에서 사용)
         if (product.options?.length > 0) {
-            const combinations = [];
+            // 1단계: 모든 옵션 값 번역 및 이미지 업로드
             for (let optIdx = 0; optIdx < product.options.length; optIdx++) {
                 const opt = product.options[optIdx];
+                const processedValues = [];
+
                 for (let valIdx = 0; valIdx < opt.values.length; valIdx++) {
                     const val = opt.values[valIdx];
-                    let optionValue = val.name_kr || val.name || val;
 
-                    // 중국어면 번역
-                    if (typeof optionValue === 'string' && /[\u4e00-\u9fa5]/.test(optionValue)) {
+                    // 옵션값 처리 (name_kr이 있으면 무조건 사용, 번역 안함)
+                    let optionValue: string;
+
+                    if (val.name_kr && val.name_kr.trim()) {
+                        // name_kr이 존재하면 번역 없이 그대로 사용
+                        optionValue = val.name_kr.trim();
+                        console.log(`  옵션값: ${optionValue} (한국어 직접 사용)`);
+                    } else {
+                        // name_kr이 없으면 중국어를 번역 시도
+                        optionValue = val.name || val;
+
+                        if (typeof optionValue === 'string' && /[\u4e00-\u9fa5]/.test(optionValue)) {
+                            try {
+                                const translateRes = await fetch('http://localhost:3000/api/translate', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ texts: [optionValue], from: 'zh', to: 'ko' })
+                                });
+                                const translateData: any = await translateRes.json();
+                                if (translateData.translations && translateData.translations.length > 0) {
+                                    optionValue = translateData.translations[0];
+                                    console.log(`  옵션값 번역: ${val.name} → ${optionValue}`);
+                                }
+                            } catch (err) {
+                                console.log(`  옵션 번역 실패, 원문 사용: ${optionValue}`);
+                            }
+                        }
+                    }
+
+                    // 옵션 이미지 업로드 (있는 경우) - 재시도 포함
+                    let optionImageUrls = undefined;
+                    if (val.image && val.image.startsWith('http')) {
+                        let uploadSuccess = false;
+                        for (let retry = 0; retry < 3 && !uploadSuccess; retry++) {
+                            try {
+                                if (retry > 0) {
+                                    console.log(`  옵션 [${optIdx}-${valIdx}] 이미지 업로드 재시도 ${retry}/3...`);
+                                    await new Promise(resolve => setTimeout(resolve, 1000 * retry)); // 재시도 전 대기
+                                } else {
+                                    console.log(`  옵션 [${optIdx}-${valIdx}] 이미지 업로드 중: ${val.image.substring(0, 60)}...`);
+                                }
+                                const uploadedOptImg = await uploadImageToNaver(val.image, accessToken);
+                                optionImageUrls = [uploadedOptImg];
+                                uploadSuccess = true;
+                                console.log(`  ✅ 옵션 이미지 업로드 성공${retry > 0 ? ` (${retry}번째 재시도)` : ''}`);
+                            } catch (err: any) {
+                                if (retry === 2) {
+                                    console.warn(`  ⚠️ 옵션 이미지 업로드 최종 실패 (3회 시도): ${err.message}`);
+                                }
+                            }
+                        }
+                    }
+
+                    processedValues.push({
+                        originalValue: val,
+                        translatedValue: optionValue,
+                        imageUrls: optionImageUrls,
+                        price: val.price_krw ? Math.round(val.price_krw) : null,
+                        quantity: val.quantity || 999
+                    });
+                }
+
+                // 옵션 그룹명 처리 (name_kr이 있으면 무조건 사용, 번역 안함)
+                let optionGroupName: string;
+
+                if (opt.name_kr && opt.name_kr.trim()) {
+                    // name_kr이 존재하면 번역 없이 그대로 사용
+                    optionGroupName = opt.name_kr.trim();
+                    console.log(`  옵션 그룹명: ${optionGroupName} (한국어 직접 사용)`);
+                } else {
+                    // name_kr이 없으면 중국어를 번역 시도
+                    optionGroupName = opt.name || `옵션${optIdx + 1}`;
+
+                    if (typeof optionGroupName === 'string' && /[\u4e00-\u9fa5]/.test(optionGroupName)) {
                         try {
                             const translateRes = await fetch('http://localhost:3000/api/translate', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ text: optionValue, from: 'zh', to: 'ko' })
+                                body: JSON.stringify({ texts: [optionGroupName], from: 'zh', to: 'ko' })
                             });
                             const translateData: any = await translateRes.json();
-                            if (translateData.translatedText) {
-                                optionValue = translateData.translatedText;
+                            if (translateData.translations && translateData.translations.length > 0) {
+                                optionGroupName = translateData.translations[0];
+                                console.log(`  옵션 그룹명 번역: ${opt.name} → ${optionGroupName}`);
                             }
                         } catch (err) {
-                            console.log(`옵션 번역 실패, 원문 사용: ${optionValue}`);
+                            console.log(`  옵션 그룹명 번역 실패, 원문 사용: ${optionGroupName}`);
                         }
                     }
-
-                    // 옵션 이미지 업로드 (있는 경우)
-                    let optionImageUrls = undefined;
-                    if (val.image && val.image.startsWith('http')) {
-                        try {
-                            console.log(`  옵션 [${optIdx}-${valIdx}] 이미지 업로드 중: ${val.image.substring(0, 60)}...`);
-                            const uploadedOptImg = await uploadImageToNaver(val.image, accessToken);
-                            optionImageUrls = [uploadedOptImg];
-                            console.log(`  ✅ 옵션 이미지 업로드 성공`);
-                        } catch (err: any) {
-                            console.warn(`  ⚠️ 옵션 이미지 업로드 실패: ${err.message}`);
-                        }
-                    }
-
-                    const combination: any = {
-                        id: `${optIdx}-${valIdx}`,
-                        optionName1: opt.name_kr || opt.name || `옵션${optIdx + 1}`,
-                        optionValue1: optionValue,
-                        stockQuantity: val.quantity || 999,
-                        price: val.price_krw ? Math.round(val.price_krw) : (product.selling_price || Math.round(product.price * (settings.exchange_rate || 209))),
-                        sellerManagerCode: `OPT${optIdx}${valIdx}`
-                    };
-
-                    if (optionImageUrls) {
-                        combination.optionImageUrls = optionImageUrls;
-                    }
-
-                    combinations.push(combination);
                 }
+
+                processedOptions.push({
+                    name: optionGroupName,
+                    values: processedValues
+                });
             }
-            optionCombinations = combinations;
+
+            // 2단계: 단독형 옵션 생성 (optionSimple)
+            const optionSimple: any[] = [];
+
+            // 각 옵션 그룹의 값들을 단독형 옵션으로 변환
+            processedOptions.forEach((optGroup: any) => {
+                optGroup.values.forEach((value: any) => {
+                    optionSimple.push({
+                        groupName: optGroup.name,  // 옵션 그룹명 (색상, 사이즈 등)
+                        name: value.translatedValue,  // 옵션값 (빨강, 파랑 등)
+                        usable: true
+                    });
+                });
+            });
+
+            optionCombinations = optionSimple;
 
             // 옵션 검증 및 로깅
-            console.log(`\n📦 옵션 정보:`);
+            console.log(`\n📦 단독형 옵션 정보:`);
             console.log(`  - 옵션 그룹 수: ${product.options.length}개`);
-            console.log(`  - 옵션 조합 수: ${optionCombinations.length}개`);
+            console.log(`  - 단독형 옵션 수: ${optionCombinations.length}개`);
             if (optionCombinations.length > 0) {
-                console.log(`  - 샘플 조합:`, JSON.stringify(optionCombinations[0], null, 2));
+                console.log(`  - 샘플 옵션:`, JSON.stringify(optionCombinations[0], null, 2));
             }
 
             if (product.options.length > 0 && optionCombinations.length === 0) {
-                console.error(`⚠️ 경고: 옵션이 ${product.options.length}개 있지만 optionCombinations가 비어있습니다!`);
+                console.error(`⚠️ 경고: 옵션이 ${product.options.length}개 있지만 optionSimple이 비어있습니다!`);
                 console.error(`  상품 옵션 데이터:`, JSON.stringify(product.options, null, 2));
             }
         } else if (product.options && product.options.length > 0) {
@@ -1466,16 +1607,8 @@ app.post('/api/naver/products/register', async (req, res) => {
                     representativeImage: representativeImage,
                     optionalImages: optionalImages
                 },
-                salePrice: product.selling_price || Math.round(product.price * (settings.exchange_rate || 209)),
+                salePrice: product.selling_price || Math.round(product.price * (settings.exchange_rate || 209) / 10) * 10,
                 stockQuantity: 999,  // 재고수량은 항상 입력
-                optionInfo: optionCombinations ? {
-                    optionCombinationGroupNames: product.options?.map((opt: any, idx: number) => ({
-                        name: opt.name_kr || opt.name || `옵션${idx + 1}`
-                    })) || [],
-                    optionCombinations: optionCombinations,
-                    useStockManagement: true,
-                    optionDeliveryAttributes: []
-                } : null,
                 deliveryInfo: {
                     deliveryType: 'DELIVERY',
                     deliveryAttributeType: 'NORMAL',
@@ -1494,7 +1627,7 @@ app.post('/api/naver/products/register', async (req, res) => {
                         returnAddressId: parseInt(settings.return_address_id)
                     }
                 },
-                detailContent: buildDetailContent(product, uploadedImageUrls),
+                detailContent: buildDetailContent(product, uploadedImageUrls, optionCombinations ? processedOptions : undefined),
                 detailAttribute: {
                     naverShoppingSearchInfo: {
                         manufacturerName: '해외구매대행',
@@ -1530,7 +1663,11 @@ app.post('/api/naver/products/register', async (req, res) => {
                         childCertifiedProductExclusionYn: true,
                         kcCertifiedProductExclusionYn: 'KC_EXEMPTION_OBJECT',
                         kcExemptionType: 'OVERSEAS'
-                    }
+                    },
+                    optionInfo: optionCombinations ? {
+                        simpleOptionSortType: 'CREATE',
+                        optionSimple: optionCombinations
+                    } : undefined
                 }
             },
             smartstoreChannelProduct: {
@@ -1545,10 +1682,14 @@ app.post('/api/naver/products/register', async (req, res) => {
         console.log('📤 전송할 데이터 (전체):', JSON.stringify(naverProduct, null, 2));
 
         // optionInfo 상세 로깅
-        if (naverProduct.originProduct.optionInfo) {
+        const optionInfo = naverProduct.originProduct.detailAttribute?.optionInfo;
+        if (optionInfo) {
             console.log(`\n✅ optionInfo가 포함되어 전송됩니다:`);
-            console.log(`  - 옵션 그룹명: ${naverProduct.originProduct.optionInfo.optionCombinationGroupNames?.map((g: any) => g.name).join(', ')}`);
-            console.log(`  - 옵션 조합 수: ${naverProduct.originProduct.optionInfo.optionCombinations?.length}개`);
+            console.log(`  - 단독형 옵션 수: ${optionInfo.optionSimple?.length}개`);
+            if (optionInfo.optionSimple && optionInfo.optionSimple.length > 0) {
+                const groups = [...new Set(optionInfo.optionSimple.map((opt: any) => opt.groupName))];
+                console.log(`  - 옵션 그룹: ${groups.join(', ')}`);
+            }
         } else {
             console.log(`\n⚠️ optionInfo가 null입니다 - 단일 상품으로 등록됩니다`);
         }
@@ -1663,65 +1804,133 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
             ? uploadedImageUrls.slice(1).map((img: string) => ({ url: img }))
             : [];
 
-        // 옵션 데이터 변환 (번역 포함)
+        // 옵션 데이터 변환 (번역 포함) - 업데이트용
         let optionCombinations = null;
+        let processedOptions: any[] = [];  // 옵션 번역 및 이미지 업로드 결과 (detailContent에서 사용)
         if (product.options?.length > 0) {
-            const combinations = [];
+            // 1단계: 모든 옵션 값 번역 및 이미지 업로드
             for (let optIdx = 0; optIdx < product.options.length; optIdx++) {
                 const opt = product.options[optIdx];
+                const processedValues = [];
+
                 for (let valIdx = 0; valIdx < opt.values.length; valIdx++) {
                     const val = opt.values[valIdx];
-                    let optionValue = val.name_kr || val.name || val;
 
-                    if (typeof optionValue === 'string' && /[\u4e00-\u9fa5]/.test(optionValue)) {
+                    // 옵션값 처리 (name_kr이 있으면 무조건 사용, 번역 안함)
+                    let optionValue: string;
+
+                    if (val.name_kr && val.name_kr.trim()) {
+                        // name_kr이 존재하면 번역 없이 그대로 사용
+                        optionValue = val.name_kr.trim();
+                        console.log(`  옵션값: ${optionValue} (한국어 직접 사용)`);
+                    } else {
+                        // name_kr이 없으면 중국어를 번역 시도
+                        optionValue = val.name || val;
+
+                        if (typeof optionValue === 'string' && /[\u4e00-\u9fa5]/.test(optionValue)) {
+                            try {
+                                const translateRes = await fetch('http://localhost:3000/api/translate', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ texts: [optionValue], from: 'zh', to: 'ko' })
+                                });
+                                const translateData: any = await translateRes.json();
+                                if (translateData.translations && translateData.translations.length > 0) {
+                                    optionValue = translateData.translations[0];
+                                    console.log(`  옵션값 번역: ${val.name} → ${optionValue}`);
+                                }
+                            } catch (err) {
+                                console.log(`  옵션 번역 실패, 원문 사용: ${optionValue}`);
+                            }
+                        }
+                    }
+
+                    // 옵션 이미지 업로드 (있는 경우) - 재시도 포함
+                    let optionImageUrls = undefined;
+                    if (val.image && val.image.startsWith('http')) {
+                        let uploadSuccess = false;
+                        for (let retry = 0; retry < 3 && !uploadSuccess; retry++) {
+                            try {
+                                if (retry > 0) {
+                                    console.log(`  옵션 [${optIdx}-${valIdx}] 이미지 업로드 재시도 ${retry}/3...`);
+                                    await new Promise(resolve => setTimeout(resolve, 1000 * retry)); // 재시도 전 대기
+                                } else {
+                                    console.log(`  옵션 [${optIdx}-${valIdx}] 이미지 업로드 중: ${val.image.substring(0, 60)}...`);
+                                }
+                                const uploadedOptImg = await uploadImageToNaver(val.image, accessToken);
+                                optionImageUrls = [uploadedOptImg];
+                                uploadSuccess = true;
+                                console.log(`  ✅ 옵션 이미지 업로드 성공${retry > 0 ? ` (${retry}번째 재시도)` : ''}`);
+                            } catch (err: any) {
+                                if (retry === 2) {
+                                    console.warn(`  ⚠️ 옵션 이미지 업로드 최종 실패 (3회 시도): ${err.message}`);
+                                }
+                            }
+                        }
+                    }
+
+                    processedValues.push({
+                        originalValue: val,
+                        translatedValue: optionValue,
+                        imageUrls: optionImageUrls,
+                        price: val.price_krw ? Math.round(val.price_krw) : null,
+                        quantity: val.quantity || 999
+                    });
+                }
+
+                // 옵션 그룹명 처리 (name_kr이 있으면 무조건 사용, 번역 안함)
+                let optionGroupName: string;
+
+                if (opt.name_kr && opt.name_kr.trim()) {
+                    // name_kr이 존재하면 번역 없이 그대로 사용
+                    optionGroupName = opt.name_kr.trim();
+                    console.log(`  옵션 그룹명: ${optionGroupName} (한국어 직접 사용)`);
+                } else {
+                    // name_kr이 없으면 중국어를 번역 시도
+                    optionGroupName = opt.name || `옵션${optIdx + 1}`;
+
+                    if (typeof optionGroupName === 'string' && /[\u4e00-\u9fa5]/.test(optionGroupName)) {
                         try {
                             const translateRes = await fetch('http://localhost:3000/api/translate', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ text: optionValue, from: 'zh', to: 'ko' })
+                                body: JSON.stringify({ texts: [optionGroupName], from: 'zh', to: 'ko' })
                             });
                             const translateData: any = await translateRes.json();
-                            if (translateData.translatedText) {
-                                optionValue = translateData.translatedText;
+                            if (translateData.translations && translateData.translations.length > 0) {
+                                optionGroupName = translateData.translations[0];
+                                console.log(`  옵션 그룹명 번역: ${opt.name} → ${optionGroupName}`);
                             }
                         } catch (err) {
-                            console.log(`옵션 번역 실패, 원문 사용: ${optionValue}`);
+                            console.log(`  옵션 그룹명 번역 실패, 원문 사용: ${optionGroupName}`);
                         }
                     }
-
-                    // 옵션 이미지 업로드 (있는 경우)
-                    let optionImageUrls = undefined;
-                    if (val.image && val.image.startsWith('http')) {
-                        try {
-                            console.log(`  옵션 [${optIdx}-${valIdx}] 이미지 업로드 중: ${val.image.substring(0, 60)}...`);
-                            const uploadedOptImg = await uploadImageToNaver(val.image, accessToken);
-                            optionImageUrls = [uploadedOptImg];
-                            console.log(`  ✅ 옵션 이미지 업로드 성공`);
-                        } catch (err: any) {
-                            console.warn(`  ⚠️ 옵션 이미지 업로드 실패: ${err.message}`);
-                        }
-                    }
-
-                    const combination: any = {
-                        id: `${optIdx}-${valIdx}`,
-                        optionName1: opt.name_kr || opt.name || `옵션${optIdx + 1}`,
-                        optionValue1: optionValue,
-                        stockQuantity: val.quantity || 999,
-                        price: val.price_krw ? Math.round(val.price_krw) : (product.selling_price || Math.round(product.price * (settings.exchange_rate || 209))),
-                        sellerManagerCode: `OPT${optIdx}${valIdx}`
-                    };
-
-                    if (optionImageUrls) {
-                        combination.optionImageUrls = optionImageUrls;
-                    }
-
-                    combinations.push(combination);
                 }
+
+                processedOptions.push({
+                    name: optionGroupName,
+                    values: processedValues
+                });
             }
-            optionCombinations = combinations;
+
+            // 2단계: 단독형 옵션 생성 (optionSimple)
+            const optionSimple: any[] = [];
+
+            // 각 옵션 그룹의 값들을 단독형 옵션으로 변환
+            processedOptions.forEach((optGroup: any) => {
+                optGroup.values.forEach((value: any) => {
+                    optionSimple.push({
+                        groupName: optGroup.name,  // 옵션 그룹명 (색상, 사이즈 등)
+                        name: value.translatedValue,  // 옵션값 (빨강, 파랑 등)
+                        usable: true
+                    });
+                });
+            });
+
+            optionCombinations = optionSimple;
 
             // 옵션 검증 및 로깅
-            console.log(`\n📦 옵션 정보:`);
+            console.log(`\n📦 옵션 정보 (업데이트):`);
             console.log(`  - 옵션 그룹 수: ${product.options.length}개`);
             console.log(`  - 옵션 조합 수: ${optionCombinations.length}개`);
             if (optionCombinations.length > 0) {
@@ -1750,12 +1959,18 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
                     representativeImage: representativeImage,
                     optionalImages: optionalImages
                 },
-                salePrice: product.selling_price || Math.round(product.price * (settings.exchange_rate || 209)),
+                salePrice: product.selling_price || Math.round(product.price * (settings.exchange_rate || 209) / 10) * 10,
                 stockQuantity: 999,
                 optionInfo: optionCombinations ? {
-                    optionCombinationGroupNames: product.options?.map((opt: any, idx: number) => ({
-                        name: opt.name_kr || opt.name || `옵션${idx + 1}`
-                    })) || [],
+                    optionCombinationSortType: 'CREATE',
+                    optionCombinationGroupNames: (() => {
+                        const groupNames: any = {};
+                        product.options?.forEach((opt: any, idx: number) => {
+                            const key = `optionGroupName${idx + 1}`;
+                            groupNames[key] = opt.name_kr || opt.name || `옵션${idx + 1}`;
+                        });
+                        return groupNames;
+                    })(),
                     optionCombinations: optionCombinations,
                     useStockManagement: true,
                     optionDeliveryAttributes: []
@@ -1778,7 +1993,7 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
                         returnAddressId: parseInt(settings.return_address_id)
                     }
                 },
-                detailContent: buildDetailContent(product, uploadedImageUrls),
+                detailContent: buildDetailContent(product, uploadedImageUrls, optionCombinations ? processedOptions : undefined),
                 detailAttribute: {
                     naverShoppingSearchInfo: {
                         manufacturerName: '해외구매대행',
@@ -1814,7 +2029,11 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
                         childCertifiedProductExclusionYn: true,
                         kcCertifiedProductExclusionYn: 'KC_EXEMPTION_OBJECT',
                         kcExemptionType: 'OVERSEAS'
-                    }
+                    },
+                    optionInfo: optionCombinations ? {
+                        simpleOptionSortType: 'CREATE',
+                        optionSimple: optionCombinations
+                    } : undefined
                 }
             },
             smartstoreChannelProduct: {
@@ -1828,10 +2047,14 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
         console.log('전송할 데이터:', JSON.stringify(updateData, null, 2));
 
         // optionInfo 상세 로깅
-        if (updateData.originProduct.optionInfo) {
+        const updateOptionInfo = updateData.originProduct.detailAttribute?.optionInfo;
+        if (updateOptionInfo) {
             console.log(`\n✅ optionInfo가 포함되어 전송됩니다:`);
-            console.log(`  - 옵션 그룹명: ${updateData.originProduct.optionInfo.optionCombinationGroupNames?.map((g: any) => g.name).join(', ')}`);
-            console.log(`  - 옵션 조합 수: ${updateData.originProduct.optionInfo.optionCombinations?.length}개`);
+            console.log(`  - 단독형 옵션 수: ${updateOptionInfo.optionSimple?.length}개`);
+            if (updateOptionInfo.optionSimple && updateOptionInfo.optionSimple.length > 0) {
+                const groups = [...new Set(updateOptionInfo.optionSimple.map((opt: any) => opt.groupName))];
+                console.log(`  - 옵션 그룹: ${groups.join(', ')}`);
+            }
         } else {
             console.log(`\n⚠️ optionInfo가 null입니다 - 단일 상품으로 수정됩니다`);
         }
