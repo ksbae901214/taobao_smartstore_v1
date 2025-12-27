@@ -318,19 +318,23 @@ app.post('/api/products/from-extension', async (req, res) => {
             console.log('\n⚠️ 썸네일 데이터 없음');
         }
         
-        // 5. 상세 이미지 저장
+        // 5. 상세 이미지 저장 (최대 20개로 제한)
         const savedDetailImages: string[] = [];
         if (productData.detailImages && Array.isArray(productData.detailImages) && productData.detailImages.length > 0) {
+            const maxDetailImages = 20;
+            const detailImagesToSave = productData.detailImages.slice(0, maxDetailImages);
+
             console.log('\n🖼️ 상세 이미지 저장 시작...');
-            
+            console.log(`   📊 총 ${productData.detailImages.length}개 중 ${detailImagesToSave.length}개 저장 (최대 ${maxDetailImages}개)`);
+
             const detailDir = path.join(productDir, 'details');
             if (!fs.existsSync(detailDir)) {
                 fs.mkdirSync(detailDir, { recursive: true, mode: 0o755 });
             }
             console.log(`   📁 상세 디렉토리: ${detailDir}`);
-            
-            for (let i = 0; i < productData.detailImages.length; i++) {
-                const imgData = productData.detailImages[i];
+
+            for (let i = 0; i < detailImagesToSave.length; i++) {
+                const imgData = detailImagesToSave[i];
 
                 if (!imgData) {
                     continue;
@@ -384,7 +388,7 @@ app.post('/api/products/from-extension', async (req, res) => {
                 }
             }
             
-            console.log(`   📊 상세 저장 결과: ${savedDetailImages.length}/${productData.detailImages.length}개`);
+            console.log(`   📊 상세 저장 결과: ${savedDetailImages.length}/${detailImagesToSave.length}개`);
         } else {
             console.log('\n⚠️ 상세 이미지 데이터 없음');
         }
