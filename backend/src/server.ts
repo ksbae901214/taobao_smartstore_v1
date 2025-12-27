@@ -1176,12 +1176,33 @@ async function uploadImageToNaver(imageUrl: string, accessToken: string): Promis
     try {
         console.log(`📤 이미지 업로드 중: ${imageUrl.substring(0, 50)}...`);
 
-        // 이미지 다운로드
-        const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-        let imageBuffer = Buffer.from(imageResponse.data);
+        let imageBuffer: Buffer;
+        let contentType = 'image/jpeg';
 
-        // Content-Type에서 이미지 포맷 확인 (URL도 체크)
-        const contentType = imageResponse.headers['content-type'] || 'image/jpeg';
+        // 로컬 파일인 경우 (localhost 또는 127.0.0.1)
+        if (imageUrl.includes('localhost') || imageUrl.includes('127.0.0.1')) {
+            console.log('   📁 로컬 파일에서 직접 읽기');
+            // URL에서 파일 경로 추출 (예: http://localhost:3000/storage/... -> storage/...)
+            const urlPath = imageUrl.split('/').slice(3).join('/');
+            const filePath = path.join(__dirname, '..', urlPath);
+            console.log(`   📂 파일 경로: ${filePath}`);
+            imageBuffer = await fs.promises.readFile(filePath);
+
+            // 파일 확장자로 content-type 추정
+            const ext = path.extname(filePath).toLowerCase();
+            if (ext === '.png') contentType = 'image/png';
+            else if (ext === '.gif') contentType = 'image/gif';
+            else if (ext === '.webp') contentType = 'image/webp';
+            else if (ext === '.bmp') contentType = 'image/bmp';
+        } else {
+            // 외부 URL인 경우 HTTP로 다운로드
+            console.log('   🌐 외부 URL에서 다운로드');
+            const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+            imageBuffer = Buffer.from(imageResponse.data);
+            contentType = imageResponse.headers['content-type'] || 'image/jpeg';
+        }
+
+        // 이미지 포맷 확인
         const isWebP = contentType.includes('webp') || imageUrl.toLowerCase().includes('.webp');
         let extension = 'jpg';
         let mimeType = 'image/jpeg';
