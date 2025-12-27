@@ -1816,6 +1816,8 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
                 }
             },
             smartstoreChannelProduct: {
+                storeKeepExclusiveProduct: false,
+                naverShoppingRegistration: true,
                 channelProductDisplayStatusType: 'ON'
             }
         };
