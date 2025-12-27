@@ -1407,7 +1407,7 @@
             </div>
 
             <!-- 검색 결과 (검색 시에만 표시) -->
-            <div id="category-search-results" style="display:none; overflow-y:auto; border:1px solid #e0e0e0; border-radius:8px; padding:10px; max-height:400px; margin-top:10px;"></div>
+            <div id="category-search-results" style="display:none; overflow-y:auto; border:1px solid #e0e0e0; border-radius:8px; padding:10px; max-height:600px; margin-top:10px;"></div>
 
             <div class="edit-buttons" style="margin-top:20px; flex-shrink:0;">
                 <button class="btn-cancel" onclick="closeCategoryModal()">취소</button>
@@ -1513,9 +1513,9 @@
                     </div>
 
                     <div class="setting-row">
-                        <label class="setting-label">스토어아이돜</label>
-                        <input type="text" id="store-url" class="setting-input" placeholder="https://smartstore.naver.com/(여기에들어가는영문알파벳)">
-                        <input type="text" id="store-name" class="setting-input" placeholder="kyunismall" style="margin-top:10px;">
+                        <label class="setting-label">스토어 아이디</label>
+                        <input type="text" id="store-url" class="setting-input" placeholder="https://smartstore.naver.com/yourstore">
+                        <input type="text" id="store-name" class="setting-input" placeholder="스토어 이름 입력" style="margin-top:10px;">
                     </div>
 
 
@@ -1556,7 +1556,7 @@
                         </div>
                         <div>
                             <label class="setting-label">A/S 안내내용</label>
-                            <input type="text" id="as-guide" class="setting-input" placeholder="큐니스몰로 문의 부탁드립니다.(070-4519-8660)">
+                            <input type="text" id="as-guide" class="setting-input" placeholder="고객센터로 문의 부탁드립니다.(070-XXXX-XXXX)">
                         </div>
                     </div>
 
@@ -1780,28 +1780,28 @@
 
                     <div class="setting-row-grid-flex">
                         <div>
-                            <label class="setting-label">브랜드기능</label>
-                            <input type="text" id="brand-name" class="setting-input" placeholder="큐니스몰 컬렉샤">
+                            <label class="setting-label">브랜드명</label>
+                            <input type="text" id="brand-name" class="setting-input" placeholder="브랜드 이름 입력">
                         </div>
                         <div>
-                            <label class="setting-label">제조사기능</label>
-                            <input type="text" id="manufacturer-name" class="setting-input" placeholder="큐니스몰 컬렉샤">
+                            <label class="setting-label">제조사명</label>
+                            <input type="text" id="manufacturer-name" class="setting-input" placeholder="제조사 이름 입력">
                         </div>
                     </div>
 
                     <div class="setting-row-grid-flex">
                         <div>
-                            <label class="setting-label">출고날기능</label>
+                            <label class="setting-label">출고 소요일 (영업일 기준)</label>
                             <input type="number" id="shipping-days" class="setting-input" value="14">
                         </div>
                         <div>
-                            <label class="setting-label">1인구매개수/소식알림 리뷰포인트</label>
+                            <label class="setting-label">1인당 최대 구매 수량</label>
                             <input type="number" id="purchase-limit" class="setting-input" value="99">
                         </div>
                     </div>
 
                     <div class="setting-row">
-                        <label class="setting-label">배송비기능</label>
+                        <label class="setting-label">배송비 설정</label>
                         <div class="button-group" id="shipping-fee-list">
                             <button class="fee-btn" data-value="0">0 <span class="btn-delete" onclick="event.stopPropagation(); deleteFeeOption('shipping', 0)">✕</span></button>
                             <button class="fee-btn" data-value="10000">10000 <span class="btn-delete" onclick="event.stopPropagation(); deleteFeeOption('shipping', 10000)">✕</span></button>

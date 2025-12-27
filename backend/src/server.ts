@@ -1467,8 +1467,8 @@ app.post('/api/naver/products/register', async (req, res) => {
                         plural: false
                     },
                     productInfoProvidedNotice: {
-                        productInfoProvidedNoticeType: 'OTHERS',
-                        others: {
+                        productInfoProvidedNoticeType: 'ETC',
+                        etc: {
                             itemName: product.title_kr || product.title,
                             modelName: product.product_id || '상품 페이지 참조',
                             returnCostReason: '상품 페이지 참조',
@@ -1751,8 +1751,8 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
                         plural: false
                     },
                     productInfoProvidedNotice: {
-                        productInfoProvidedNoticeType: 'OTHERS',
-                        others: {
+                        productInfoProvidedNoticeType: 'ETC',
+                        etc: {
                             itemName: product.title_kr || product.title,
                             modelName: product.product_id || '상품 페이지 참조',
                             returnCostReason: '상품 페이지 참조',
