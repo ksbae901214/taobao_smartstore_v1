@@ -1614,10 +1614,9 @@ app.post('/api/naver/products/register', async (req, res) => {
                     deliveryAttributeType: 'NORMAL',
                     deliveryCompany: settings.default_delivery_company || 'CJGLS',
                     deliveryBundleGroupUsable: false,
-                    visitAddressId: parseInt(settings.outbound_location_id),
-                    returnCenterCode: settings.return_address_id,
                     deliveryFee: {
-                        deliveryFeeType: 'FREE'
+                        deliveryFeeType: 'FREE',
+                        baseFee: 0
                     },
                     claimDeliveryInfo: {
                         returnDeliveryCompanyPriorityType: 'PRIMARY',
@@ -1677,9 +1676,17 @@ app.post('/api/naver/products/register', async (req, res) => {
             }
         };
 
+        // deliveryInfo에서 expectedDeliveryPeriodType 명시적으로 제거 (주문 제작 상품이 아니므로)
+        if (naverProduct.originProduct.deliveryInfo) {
+            console.log('🔍 deliveryInfo 정리 전:', JSON.stringify(naverProduct.originProduct.deliveryInfo, null, 2));
+            delete (naverProduct.originProduct.deliveryInfo as any).expectedDeliveryPeriodType;
+            delete (naverProduct.originProduct.deliveryInfo as any).customProductAfterOrderYn;
+            console.log('✅ deliveryInfo 정리 후:', JSON.stringify(naverProduct.originProduct.deliveryInfo, null, 2));
+        }
+
         // 네이버 상품 등록 API 호출
         const requestBody = JSON.stringify(naverProduct);
-        console.log('📤 전송할 데이터 (전체):', JSON.stringify(naverProduct, null, 2));
+        console.log('📤 전송할 데이터 (deliveryInfo):', JSON.stringify(naverProduct.originProduct.deliveryInfo, null, 2));
 
         // optionInfo 상세 로깅
         const optionInfo = naverProduct.originProduct.detailAttribute?.optionInfo;
@@ -1980,10 +1987,9 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
                     deliveryAttributeType: 'NORMAL',
                     deliveryCompany: settings.default_delivery_company || 'CJGLS',
                     deliveryBundleGroupUsable: false,
-                    visitAddressId: parseInt(settings.outbound_location_id),
-                    returnCenterCode: settings.return_address_id,
                     deliveryFee: {
-                        deliveryFeeType: 'FREE'
+                        deliveryFeeType: 'FREE',
+                        baseFee: 0
                     },
                     claimDeliveryInfo: {
                         returnDeliveryCompanyPriorityType: 'PRIMARY',
@@ -2042,6 +2048,12 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
                 channelProductDisplayStatusType: 'ON'
             }
         };
+
+        // deliveryInfo에서 expectedDeliveryPeriodType 명시적으로 제거 (주문 제작 상품이 아니므로)
+        if (updateData.originProduct.deliveryInfo) {
+            delete (updateData.originProduct.deliveryInfo as any).expectedDeliveryPeriodType;
+            delete (updateData.originProduct.deliveryInfo as any).customProductAfterOrderYn;
+        }
 
         console.log('📤 수정 데이터 전송 중...');
         console.log('전송할 데이터:', JSON.stringify(updateData, null, 2));
