@@ -1182,10 +1182,23 @@ async function uploadImageToNaver(imageUrl: string, accessToken: string): Promis
         // 로컬 파일인 경우 (localhost 또는 127.0.0.1)
         if (imageUrl.includes('localhost') || imageUrl.includes('127.0.0.1')) {
             console.log('   📁 로컬 파일에서 직접 읽기');
-            // URL에서 파일 경로 추출 (예: http://localhost:3000/storage/... -> storage/...)
+            console.log(`   🔍 원본 URL: ${imageUrl}`);
+
+            // URL에서 파일 경로 추출
             const urlPath = imageUrl.split('/').slice(3).join('/');
-            const filePath = path.join(__dirname, '..', urlPath);
-            console.log(`   📂 파일 경로: ${filePath}`);
+            console.log(`   🔍 추출된 경로: ${urlPath}`);
+
+            // storage/images/... 또는 images/... 형태를 /app/storage/images/... 로 변환
+            let filePath: string;
+            if (urlPath.startsWith('storage/')) {
+                filePath = path.join(__dirname, '..', urlPath);
+            } else if (urlPath.startsWith('images/')) {
+                filePath = path.join(__dirname, '..', 'storage', urlPath);
+            } else {
+                filePath = path.join(__dirname, '..', 'storage', 'images', urlPath);
+            }
+
+            console.log(`   📂 최종 파일 경로: ${filePath}`);
             imageBuffer = await fs.promises.readFile(filePath);
 
             // 파일 확장자로 content-type 추정
@@ -1197,7 +1210,12 @@ async function uploadImageToNaver(imageUrl: string, accessToken: string): Promis
         } else {
             // 외부 URL인 경우 HTTP로 다운로드
             console.log('   🌐 외부 URL에서 다운로드');
-            const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+            // localhost를 127.0.0.1로 변경 (IPv6 연결 방지)
+            const downloadUrl = imageUrl.replace('localhost', '127.0.0.1');
+            const imageResponse = await axios.get(downloadUrl, {
+                responseType: 'arraybuffer',
+                timeout: 10000
+            });
             imageBuffer = Buffer.from(imageResponse.data);
             contentType = imageResponse.headers['content-type'] || 'image/jpeg';
         }
@@ -1317,13 +1335,13 @@ app.post('/api/naver/products/register', async (req, res) => {
         // 3. 옵션 이미지는 나중에 개별적으로 업로드 (옵션 빌드시)
 
         // 이미지를 네이버에 업로드
-        console.log(`📤 ${imageUrls.length}개의 이미지를 네이버에 업로드 중... (최대 20개)`);
+        console.log(`📤 ${imageUrls.length}개의 이미지를 네이버에 업로드 중... (최대 10개)`);
         const uploadedImageUrls: string[] = [];
         const failedImages: {index: number, url: string, error: string}[] = [];
 
-        for (let i = 0; i < Math.min(imageUrls.length, 20); i++) {
+        for (let i = 0; i < Math.min(imageUrls.length, 10); i++) {
             try {
-                console.log(`  [${i + 1}/${Math.min(imageUrls.length, 20)}] 업로드 중: ${imageUrls[i].substring(0, 60)}...`);
+                console.log(`  [${i + 1}/${Math.min(imageUrls.length, 10)}] 업로드 중: ${imageUrls[i].substring(0, 60)}...`);
                 const uploadedUrl = await uploadImageToNaver(imageUrls[i], accessToken);
                 uploadedImageUrls.push(uploadedUrl);
                 console.log(`  ✅ [${i + 1}] 업로드 성공`);
@@ -1339,7 +1357,7 @@ app.post('/api/naver/products/register', async (req, res) => {
             }
         }
 
-        console.log(`\n📊 이미지 업로드 결과: ${uploadedImageUrls.length}/${Math.min(imageUrls.length, 20)}개 성공`);
+        console.log(`\n📊 이미지 업로드 결과: ${uploadedImageUrls.length}/${Math.min(imageUrls.length, 10)}개 성공`);
         if (failedImages.length > 0) {
             console.warn(`⚠️ 실패한 이미지 ${failedImages.length}개:`);
             failedImages.forEach(f => {
@@ -1604,13 +1622,13 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
             imageUrls = [...imageUrls, ...detailUrls];
         }
 
-        console.log(`📤 ${imageUrls.length}개의 이미지를 네이버에 업로드 중... (최대 20개)`);
+        console.log(`📤 ${imageUrls.length}개의 이미지를 네이버에 업로드 중... (최대 10개)`);
         const uploadedImageUrls: string[] = [];
         const failedImages: {index: number, url: string, error: string}[] = [];
 
-        for (let i = 0; i < Math.min(imageUrls.length, 20); i++) {
+        for (let i = 0; i < Math.min(imageUrls.length, 10); i++) {
             try {
-                console.log(`  [${i + 1}/${Math.min(imageUrls.length, 20)}] 업로드 중: ${imageUrls[i].substring(0, 60)}...`);
+                console.log(`  [${i + 1}/${Math.min(imageUrls.length, 10)}] 업로드 중: ${imageUrls[i].substring(0, 60)}...`);
                 const uploadedUrl = await uploadImageToNaver(imageUrls[i], accessToken);
                 uploadedImageUrls.push(uploadedUrl);
                 console.log(`  ✅ [${i + 1}] 업로드 성공`);
@@ -1624,7 +1642,7 @@ app.put('/api/naver/products/:originProductNo', async (req, res) => {
             }
         }
 
-        console.log(`\n📊 이미지 업로드 결과: ${uploadedImageUrls.length}/${Math.min(imageUrls.length, 20)}개 성공`);
+        console.log(`\n📊 이미지 업로드 결과: ${uploadedImageUrls.length}/${Math.min(imageUrls.length, 10)}개 성공`);
         if (failedImages.length > 0) {
             console.warn(`⚠️ 실패한 이미지 ${failedImages.length}개:`);
             failedImages.forEach(f => {
