@@ -467,6 +467,8 @@ app.post('/api/products/from-extension', async (req, res) => {
         };
         
         await redis.set(`product:${productId}`, JSON.stringify(productToSave));
+        // 원본 데이터도 저장 (초기화용)
+        await redis.set(`product:${productId}:original`, JSON.stringify(productToSave));
         await redis.sadd('products:list', productId);
         
         console.log('\n========================================');
@@ -2757,6 +2759,98 @@ app.put('/api/products/extracted/:productId/shipping', async (req, res) => {
 
     } catch (error: any) {
         console.error('배송 설정 오류:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 상품 항목별 초기화 API
+app.post('/api/products/extracted/:productId/reset/:field', async (req, res) => {
+    try {
+        const { productId, field } = req.params;
+
+        const productKey = `product:${productId}`;
+        const originalKey = `product:${productId}:original`;
+
+        const [currentData, originalData] = await Promise.all([
+            redis.get(productKey),
+            redis.get(originalKey)
+        ]);
+
+        if (!currentData) {
+            return res.status(404).json({ error: '상품을 찾을 수 없습니다' });
+        }
+
+        if (!originalData) {
+            return res.status(404).json({ error: '원본 데이터가 없습니다' });
+        }
+
+        const current = JSON.parse(currentData);
+        const original = JSON.parse(originalData);
+
+        // 필드별 초기화
+        const fieldMap: { [key: string]: string[] } = {
+            'title': ['title', 'title_kr'],
+            'price': ['selling_price', 'price', 'price_krw'],
+            'category': ['naver_category_id', 'naver_category_name'],
+            'images': ['images'],
+            'detail_images': ['detail_images'],
+            'options': ['options'],
+            'keywords': ['keywords'],
+            'shipping': ['free_shipping', 'shipping_fee']
+        };
+
+        const fieldsToReset = fieldMap[field];
+        if (!fieldsToReset) {
+            return res.status(400).json({ error: '유효하지 않은 필드입니다' });
+        }
+
+        // 해당 필드만 원본으로 복원
+        for (const f of fieldsToReset) {
+            if (original[f] !== undefined) {
+                current[f] = original[f];
+            }
+        }
+
+        current.updated_at = new Date().toISOString();
+        await redis.set(productKey, JSON.stringify(current));
+
+        console.log(`🔄 상품 ${productId}의 ${field} 필드 초기화 완료`);
+
+        res.json({
+            message: `${field} 항목이 초기화되었습니다`,
+            product: current
+        });
+
+    } catch (error: any) {
+        console.error('항목 초기화 오류:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 전체 초기화 API
+app.post('/api/products/extracted/:productId/reset', async (req, res) => {
+    try {
+        const { productId } = req.params;
+
+        const originalKey = `product:${productId}:original`;
+        const originalData = await redis.get(originalKey);
+
+        if (!originalData) {
+            return res.status(404).json({ error: '원본 데이터가 없습니다' });
+        }
+
+        const productKey = `product:${productId}`;
+        await redis.set(productKey, originalData);
+
+        console.log(`🔄 상품 ${productId} 전체 초기화 완료`);
+
+        res.json({
+            message: '상품이 초기 상태로 복원되었습니다',
+            product: JSON.parse(originalData)
+        });
+
+    } catch (error: any) {
+        console.error('전체 초기화 오류:', error);
         res.status(500).json({ error: error.message });
     }
 });
